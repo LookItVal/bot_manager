@@ -67,13 +67,9 @@ class Artist:  # ToDo
 class Album:  # ToDo
     def __init__(self, uri) -> None:  # ToDo
         if 'https://' in uri:
-            split = uri.split('/')
-            if not split[3] == 'album':
-                raise ValueError('Link appears to not be a Spotify Album link')
-            uri = 'spotify:' + split[3] + ':' + split[4][:22]
-            print(uri)
+            uri = url_to_uri(uri)
         self.uri:       str = uri
-        self.directory: str = '/data/' + uri
+        self.directory = os.path.join(os.getcwd(), r'data/' + uri)
         if os.path.isdir(self.directory):
             pass
             # pull from this data
@@ -82,20 +78,20 @@ class Album:  # ToDo
             self.name:     str = spotify_info['name']
             self.artists: list = spotify_info['artists']  # ToDo make this pull just the uri from each
             self.tracks:  list = spotify_info['tracks']  # ToDo make this pull just the uri from each
-'''        if isinstance(data, dict):
-            self.uri:      str = data.pop('uri')
-            self.name:     str = data.pop('name')
-            self.artists:  str = data.pop('artist')
-            self.tracks:  list = data.pop('tracks')
-            self.data:    dict = data
-            # self.art we should turn this into a property to pull from a file'''
-'''        spotify_info  = sp.album(uri)
-        self.uri: str = spotify_info['uri']
-        self.name     = spotify_info['name']
-        self.artists  = None
-        self.tracks   = []
-        self.art      = None
-        print(json.dumps(spotify_info, sort_keys=True, indent=4))'''
+            self.data:    dict = {}
+
+    def __call__(self) -> dict:
+        data = self.__dict__ | self.data
+        del data['data']
+        return data
+
+    def save(self):
+        if not os.path.isdir(self.directory):
+            print('trying')
+            os.mkdir(self.directory)
+        with open(self.directory + '/.json', 'w') as file:
+            file.write(json.dumps(self(), sort_keys=True, indent=4))
+
 
 
 class Track:  # ToDo
@@ -109,3 +105,12 @@ class Track:  # ToDo
 class Review:  # ToDo
     def __init__(self):
         pass
+
+
+def url_to_uri(url) -> str:
+    if 'https://' in url:
+        split = url.split('/')
+        uri = 'spotify:' + split[3] + ':' + split[4][:22]
+        return uri
+    else:
+        raise TypeError('Please give Spotify Link')
