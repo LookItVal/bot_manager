@@ -93,7 +93,6 @@ class Album:  # ToDo
             file.write(json.dumps(self(), sort_keys=True, indent=4))
 
 
-
 class Track:  # ToDo
     def __init__(self, link) -> None:  # ToDo
         self.link = link
