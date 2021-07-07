@@ -71,26 +71,38 @@ class Album:  # ToDo
         self.uri:       str = uri
         self.directory = os.path.join(os.getcwd(), r'data/' + uri)
         if os.path.isdir(self.directory):
-            pass
-            # pull from this data
+            self.data = self.load()
+            self.name = self.data.pop('name')
+            self.artists = self.data.pop('artists')
+            self.tracks = self.data.pop('tracks')
         else:
             spotify_info = sp.album(uri)
             self.name:     str = spotify_info['name']
-            self.artists: list = spotify_info['artists']  # ToDo make this pull just the uri from each
-            self.tracks:  list = spotify_info['tracks']  # ToDo make this pull just the uri from each
+            self.artists: list = spotify_info['artists']
+            for i, artist in enumerate(self.artists):
+                self.artists[i] = artist['uri']
+            self.tracks:  list = spotify_info['tracks']
+            tracks = []
+            for track in self.tracks['items']:
+                tracks.append(track['uri'])
+            self.tracks = tracks
             self.data:    dict = {}
 
     def __call__(self) -> dict:
         data = self.__dict__ | self.data
         del data['data']
+        del data['directory']
         return data
 
-    def save(self):
+    def save(self) -> None:
         if not os.path.isdir(self.directory):
-            print('trying')
             os.mkdir(self.directory)
         with open(self.directory + '/.json', 'w') as file:
             file.write(json.dumps(self(), sort_keys=True, indent=4))
+
+    def load(self) -> dict:
+        with open(self.directory + '/.json', 'r') as file:
+            return json.loads(file.read())
 
 
 class Track:  # ToDo
@@ -101,11 +113,6 @@ class Track:  # ToDo
         self.album = None
 
 
-class Review:  # ToDo
-    def __init__(self):
-        pass
-
-
 def url_to_uri(url) -> str:
     if 'https://' in url:
         split = url.split('/')
@@ -113,3 +120,7 @@ def url_to_uri(url) -> str:
         return uri
     else:
         raise TypeError('Please give Spotify Link')
+
+
+def pretty_print(data: dict) -> str:
+    print(json.dumps(data, sort_keys=True, indent=4))
