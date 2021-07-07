@@ -77,6 +77,7 @@ class Album:  # ToDo
             self.tracks = self.data.pop('tracks')
         else:
             spotify_info = sp.album(uri)
+            pretty_print(spotify_info)
             self.name:     str = spotify_info['name']
             self.artists: list = spotify_info['artists']
             for i, artist in enumerate(self.artists):
@@ -103,6 +104,8 @@ class Album:  # ToDo
     def load(self) -> dict:
         with open(self.directory + '/.json', 'r') as file:
             return json.loads(file.read())
+
+    # ToDo download image file of the album art and save to file
 
 
 class Track:  # ToDo
