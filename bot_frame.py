@@ -2,6 +2,7 @@ import os
 import json
 
 import spotipy
+from discord import utils
 from discord.ext import commands
 from dotenv import load_dotenv
 
@@ -25,10 +26,10 @@ class Bot(commands.Bot):
             brief="Prints pong back to the channel."
         )
         async def ping(ctx):
-            await ctx.channel.send('pong')
+            await ctx.send('pong')
 
 
-# Nothing below here has been checked
+# Spotify
 class Artist:  # ToDo
     def __init__(self, link, data: dict = None) -> None:  # ToDo
         if data:
@@ -77,7 +78,6 @@ class Album:  # ToDo
             self.tracks = self.data.pop('tracks')
         else:
             spotify_info = sp.album(uri)
-            pretty_print(spotify_info)
             self.name:     str = spotify_info['name']
             self.artists: list = spotify_info['artists']
             for i, artist in enumerate(self.artists):
@@ -90,7 +90,7 @@ class Album:  # ToDo
             self.data:    dict = {}
 
     def __call__(self) -> dict:
-        data = self.__dict__ | self.data
+        data = self.__dict__ | self.data  # cause you can just do this ig
         del data['data']
         del data['directory']
         return data
@@ -114,6 +114,37 @@ class Track:  # ToDo
         self.name = None
         self.artist = None
         self.album = None
+
+
+# Discord
+class User:  # ToDo
+    def __init__(self, user) -> None:  # ToDo identify what variables are needed
+        if isinstance(user, int):  # if user is ID and not discord.user object
+            pass
+            # search for user on file and load from that
+        self.directory = 'data/discord:member:' + str(user.id)
+        self.id = user.id
+        self.name = user.name
+        self.discriminator = user.discriminator
+        self.bot = user.bot
+        self.data = {}
+
+    def __call__(self) -> dict:
+        data = self.__dict__ | self.data
+        del data['data']
+        del data['directory']
+        return data
+
+    def save(self):
+        if not os.path.isdir(self.directory):
+            os.mkdir(self.directory)
+        with open(self.directory + '/.json', 'w') as file:
+            file.write(json.dumps(self(), sort_keys=True, indent=4))
+
+
+class Category:  # no channel should be needed, the needed ID's should just be in here
+    def __init__(self) -> None:  # ToDo
+        pass
 
 
 def url_to_uri(url) -> str:

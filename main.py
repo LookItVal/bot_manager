@@ -1,5 +1,6 @@
-import bot_frame
+import aotw
 
-album = bot_frame.Album('https://open.spotify.com/album/6BA8AsaJWZ4HfoaDZC67tZ?si=TpjfA-mDQ7KFv12_1DGEDw&dl_branch=1')
-bot_frame.pretty_print(album())
+bot = aotw.AOTWBot()
+bot.run()
+
 # ToDo set raffle bot function
