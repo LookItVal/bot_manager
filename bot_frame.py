@@ -27,6 +27,8 @@ class Bot(commands.Bot):
         )
         async def ping(ctx):
             await ctx.send('pong')
+            # add something that always prints something into the console, with some data from context as well
+            # maybe a self.print_ctx() command or something, but with what function was called too. (maybe message?)
 
 
 # Spotify
@@ -70,23 +72,24 @@ class Album:  # ToDo
         if 'https://' in uri:
             uri = url_to_uri(uri)
         self.uri:       str = uri
-        self.directory = os.path.join(os.getcwd(), r'data/' + uri)
+        self.directory: str = os.path.join(os.getcwd(), r'data/' + uri)
         if os.path.isdir(self.directory):
-            self.data = self.load()
-            self.name = self.data.pop('name')
-            self.artists = self.data.pop('artists')
-            self.tracks = self.data.pop('tracks')
+            self.data:    dict = self.load()
+            self.name:     str = self.data.pop('name')
+            self.artists: list = self.data.pop('artists')
+            self.tracks:  list = self.data.pop('tracks')
+            self.uri:      str = self.data.pop('uri')  # this seems redundant, but removes key from self.data
         else:
-            spotify_info = sp.album(uri)
+            spotify_info: dict = sp.album(uri)
             self.name:     str = spotify_info['name']
             self.artists: list = spotify_info['artists']
             for i, artist in enumerate(self.artists):
-                self.artists[i] = artist['uri']
+                self.artists[i]: str = artist['uri']
             self.tracks:  list = spotify_info['tracks']
             tracks = []
             for track in self.tracks['items']:
                 tracks.append(track['uri'])
-            self.tracks = tracks
+            self.tracks:  list = tracks
             self.data:    dict = {}
 
     def __call__(self) -> dict:
@@ -120,14 +123,19 @@ class Track:  # ToDo
 class User:  # ToDo
     def __init__(self, user) -> None:  # ToDo identify what variables are needed
         if isinstance(user, int):  # if user is ID and not discord.user object
-            pass
-            # search for user on file and load from that
-        self.directory = 'data/discord:member:' + str(user.id)
-        self.id = user.id
-        self.name = user.name
-        self.discriminator = user.discriminator
-        self.bot = user.bot
-        self.data = {}
+            self.directory: str = 'data/discord:member:' + str(user)
+            self.data:         dict = self.load()
+            self.id:            str = self.data.pop('id')  # do not pull id from local user, pop to remove from data
+            self.name:          str = self.data.pop('name')
+            self.discriminator: str = self.data.pop('discriminator')
+            self.bot:          bool = self.data.pop('bot')
+        else:
+            self.directory:     str = 'data/discord:member:' + str(user.id)
+            self.id:            int = user.id
+            self.name:          str = user.name
+            self.discriminator: str = user.discriminator
+            self.bot:          bool = user.bot
+            self.data:         dict = {}
 
     def __call__(self) -> dict:
         data = self.__dict__ | self.data
@@ -135,11 +143,15 @@ class User:  # ToDo
         del data['directory']
         return data
 
-    def save(self):
+    def save(self) -> None:
         if not os.path.isdir(self.directory):
             os.mkdir(self.directory)
         with open(self.directory + '/.json', 'w') as file:
             file.write(json.dumps(self(), sort_keys=True, indent=4))
+
+    def load(self) -> dict:
+        with open(self.directory + '/.json', 'r') as file:
+            return json.loads(file.read())
 
 
 class Category:  # no channel should be needed, the needed ID's should just be in here
@@ -157,4 +169,6 @@ def url_to_uri(url) -> str:
 
 
 def pretty_print(data: dict) -> str:
-    print(json.dumps(data, sort_keys=True, indent=4))
+    data = json.dumps(data, sort_keys=True, indent=4)
+    print(data)
+    return data

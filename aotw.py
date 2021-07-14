@@ -24,9 +24,9 @@ class AOTWBot(bot_frame.Bot):
                 album = bot_frame.Album(args)
             except:
                 await ctx.send('Invalid Album Link')
-            user = User(self, ctx.author.id)
-            user.save()
-            await ctx.send('Lets hope that worked')
+                return
+            user = User(ctx.author.id)
+            await ctx.send(user.name)
 
     def run(self):
         super().run(self.TOKEN)
@@ -34,5 +34,5 @@ class AOTWBot(bot_frame.Bot):
 
 # discord
 class User(bot_frame.User):
-    def __init__(self, bot, user):
-        super().__init__(bot, user)
+    def __init__(self, user):
+        super().__init__(user)
