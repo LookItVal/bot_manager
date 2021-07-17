@@ -1,5 +1,8 @@
 import os
 import json
+import inspect
+from types import FunctionType, CoroutineType, MethodType
+from functools import wraps
 
 import spotipy
 from discord import utils
@@ -13,22 +16,65 @@ sp = spotipy.Spotify(auth_manager=auth_manager)
 COMMAND_PREFIX = os.getenv('COMMAND_PREFIX')
 
 
-class Bot(commands.Bot):
-    def __init__(self):
-        super().__init__(command_prefix=COMMAND_PREFIX)
+def log(method):
+    if inspect.iscoroutinefunction(method):
+        print('logging coroutine method: ' + method.__name__)
 
-        @super().event
+        @wraps(method)
+        async def logged(*args, **kwargs):
+            print()
+            ctx = args[1]
+            print('#' + ctx.author.discriminator + ctx.author.name + ' invoked the following command:')
+            print(ctx.message.content)
+            await method(*args, **kwargs)
+    else:
+        print('logging method: ' + method.__name__)
+
+        @wraps(method)
+        def logged(*args, **kwargs):
+            print()
+            print(method.__name__ + ' called')
+            method(*args, **kwargs)
+    return logged
+
+
+class Bot:
+    def __new__(cls):
+        for name, method in inspect.getmembers(cls, inspect.isfunction):
+            if name[:1] == '_':
+                continue
+            setattr(cls, name, log(method))
+        return super(Bot, cls).__new__(cls)
+
+    def __init__(self):
+        self.discord_bot = commands.Bot(command_prefix=COMMAND_PREFIX)
+
+        @self.discord_bot.event
         async def on_ready():
+            print()
             print('Discord Bot Ready')
 
-        @super().command(
+        @self.discord_bot.command(
             help="Returns pong if bot is properly connected to the server.",
             brief="Prints pong back to the channel."
         )
         async def ping(ctx):
-            await ctx.send('pong')
+            await self.ping(ctx)
             # add something that always prints something into the console, with some data from context as well
             # maybe a self.print_ctx() command or something, but with what function was called too. (maybe message?)
+
+    async def ping(self, ctx):
+        await ctx.send('pong')
+
+    def run(self):
+        self.discord_bot.run(self.TOKEN)
+
+
+
+
+'''    @log
+    async def ping(self, ctx):
+        await ctx.send('pong')'''
 
 
 # Spotify
