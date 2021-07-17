@@ -1,11 +1,10 @@
 import os
 import json
 import inspect
-from types import FunctionType, CoroutineType, MethodType
+from types import FunctionType
 from functools import wraps
 
 import spotipy
-from discord import utils
 from discord.ext import commands
 from dotenv import load_dotenv
 
@@ -60,8 +59,9 @@ class Bot:
         )
         async def ping(ctx):
             await self.ping(ctx)
-            # add something that always prints something into the console, with some data from context as well
-            # maybe a self.print_ctx() command or something, but with what function was called too. (maybe message?)
+
+    def __call__(self):
+        self.run()
 
     async def ping(self, ctx):
         await ctx.send('pong')
@@ -70,11 +70,26 @@ class Bot:
         self.discord_bot.run(self.TOKEN)
 
 
+class Data:
+    def __init__(self):
+        # Turn this into a superclass that will be the basis for all datatypes here
+        pass
 
+    def __call__(self) -> dict:
+        data = self.__dict__ | self.data  # cause you can just do this ig
+        del data['data']
+        del data['directory']
+        return data
 
-'''    @log
-    async def ping(self, ctx):
-        await ctx.send('pong')'''
+    def save(self) -> None:
+        if not os.path.isdir(self.directory):
+            os.mkdir(self.directory)
+        with open(self.directory + '/.json', 'w') as file:
+            file.write(json.dumps(self(), sort_keys=True, indent=4))
+
+    def load(self) -> dict:
+        with open(self.directory + '/.json', 'r') as file:
+            return json.loads(file.read())
 
 
 # Spotify
@@ -105,12 +120,12 @@ class Artist:  # ToDo
     @classmethod
     def get_artist(cls, link):
         print('non functional')
-        # seach for loaded copy
-        # load copy
-            #new thread with refreshing release
-            #give artist
-        #no copy
-            # run init
+'''seach for loaded copy
+        load copy
+            new thread with refreshing release
+            give artist
+        no copy
+            run init'''
 
 
 class Album:  # ToDo
