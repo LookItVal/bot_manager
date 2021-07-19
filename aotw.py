@@ -25,6 +25,9 @@ class AOTWBot(frame.Bot):
     async def set_raffle(self, ctx, args):
         try:
             album = frame.Album(args)
+        except commands.errors.MissingRequiredArgument:
+            await ctx.send('Missing Argument: Please send a link to the album you would like to set as your raffle')
+            return
         except:
             await ctx.send('Invalid Album Link')
             return

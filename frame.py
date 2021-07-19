@@ -1,9 +1,10 @@
 import os
 import json
 import inspect
-from types import FunctionType
+from types import FunctionType, CoroutineType
 from functools import wraps
 
+import discord
 import spotipy
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -15,7 +16,7 @@ sp = spotipy.Spotify(auth_manager=auth_manager)
 COMMAND_PREFIX = os.getenv('COMMAND_PREFIX')
 
 
-def log(method):
+def log(method) -> FunctionType or CoroutineType:
     if inspect.iscoroutinefunction(method):
         print('logging coroutine method: ' + method.__name__)
 
@@ -25,7 +26,7 @@ def log(method):
             ctx = args[1]
             print('#' + ctx.author.discriminator + ctx.author.name + ' invoked the following command:')
             print(ctx.message.content)
-            await method(*args, **kwargs)
+            return await method(*args, **kwargs)
     else:
         print('logging method: ' + method.__name__)
 
@@ -33,19 +34,21 @@ def log(method):
         def logged(*args, **kwargs):
             print()
             print(method.__name__ + ' called')
-            method(*args, **kwargs)
+            return method(*args, **kwargs)
     return logged
 
 
 class Bot:
-    def __new__(cls):
+    TOKEN = None
+
+    def __new__(cls) -> object:  # i have no idea if this is the correct type but pycharm doesnt seem to care
         for name, method in inspect.getmembers(cls, inspect.isfunction):
             if name[:1] == '_':
                 continue
             setattr(cls, name, log(method))
         return super(Bot, cls).__new__(cls)
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.discord_bot = commands.Bot(command_prefix=COMMAND_PREFIX)
 
         @self.discord_bot.event
@@ -60,18 +63,21 @@ class Bot:
         async def ping(ctx):
             await self.ping(ctx)
 
-    def __call__(self):
+    def __call__(self) -> None:
         self.run()
 
-    async def ping(self, ctx):
+    async def ping(self, ctx) -> None:
         await ctx.send('pong')
 
-    def run(self):
+    def run(self) -> None:
         self.discord_bot.run(self.TOKEN)
 
 
 class Data:
-    def __init__(self):
+    data = None
+    directory = None
+
+    def __init__(self) -> None:
         # Turn this into a superclass that will be the basis for all datatypes here
         pass
 
@@ -93,8 +99,8 @@ class Data:
 
 
 # Spotify
-class Artist:  # ToDo
-    def __init__(self, link, data: dict = None) -> None:  # ToDo
+class Artist:
+    def __init__(self, link, data: dict = None) -> None:
         if data:
             self.uri:             str = data['uri']
             self.name:            str = data['name']
@@ -128,8 +134,8 @@ class Artist:  # ToDo
             run init'''
 
 
-class Album:  # ToDo
-    def __init__(self, uri) -> None:  # ToDo
+class Album:
+    def __init__(self, uri: str) -> None:
         if 'https://' in uri:
             uri = url_to_uri(uri)
         self.uri:       str = uri
@@ -182,7 +188,7 @@ class Track:  # ToDo
 
 # Discord
 class User:  # ToDo
-    def __init__(self, user) -> None:  # ToDo identify what variables are needed
+    def __init__(self, user: int or discord.User) -> None:
         if isinstance(user, int):  # if user is ID and not discord.user object
             self.directory: str = 'data/discord:member:' + str(user)
             self.data:         dict = self.load()
@@ -220,7 +226,7 @@ class Category:  # no channel should be needed, the needed ID's should just be i
         pass
 
 
-def url_to_uri(url) -> str:
+def url_to_uri(url: str) -> str:
     if 'https://' in url:
         split = url.split('/')
         uri = 'spotify:' + split[3] + ':' + split[4][:22]
