@@ -24,7 +24,7 @@ def log(method: FunctionType or CoroutineType) -> FunctionType or CoroutineType:
         async def logged(*args, **kwargs):
             print()
             ctx = args[1]
-            print('#' + ctx.author.discriminator + ctx.author.name + ' invoked the following command:')
+            print(ctx.author.name + '#' + ctx.author.discriminator + ' invoked the following command:')
             print(ctx.message.content)
             return await method(*args, **kwargs)
     else:
