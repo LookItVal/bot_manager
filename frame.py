@@ -16,7 +16,7 @@ sp = spotipy.Spotify(auth_manager=auth_manager)
 COMMAND_PREFIX = os.getenv('COMMAND_PREFIX')
 
 
-def log(method) -> FunctionType or CoroutineType:
+def log(method: FunctionType or CoroutineType) -> FunctionType or CoroutineType:
     if inspect.iscoroutinefunction(method):
         print('logging coroutine method: ' + method.__name__)
 
@@ -74,12 +74,13 @@ class Bot:
 
 
 class Data:
-    data = None
-    directory = None
-
-    def __init__(self) -> None:
-        # Turn this into a superclass that will be the basis for all datatypes here
-        pass
+    def __init__(self, uri: str) -> None:
+        self.data:     dict = None
+        self.uri:       str = uri
+        self.directory: str = os.path.join(os.getcwd(), r'data/' + uri)
+        if os.path.isdir(self.directory):
+            self.data: dict = self.load()
+            self.uri:   str = self.data.pop('uri')  # feels redundant but is needed to remove the uri from self.data
 
     def __call__(self) -> dict:
         data = self.__dict__ | self.data  # cause you can just do this ig
@@ -134,18 +135,15 @@ class Artist:
             run init'''
 
 
-class Album:
+class Album(Data):
     def __init__(self, uri: str) -> None:
         if 'https://' in uri:
             uri = url_to_uri(uri)
-        self.uri:       str = uri
-        self.directory: str = os.path.join(os.getcwd(), r'data/' + uri)
-        if os.path.isdir(self.directory):
-            self.data:    dict = self.load()
+        super().__init__(uri)
+        if self.data:
             self.name:     str = self.data.pop('name')
             self.artists: list = self.data.pop('artists')
             self.tracks:  list = self.data.pop('tracks')
-            self.uri:      str = self.data.pop('uri')  # this seems redundant, but removes key from self.data
         else:
             spotify_info: dict = sp.album(uri)
             self.name:     str = spotify_info['name']
@@ -158,23 +156,6 @@ class Album:
                 tracks.append(track['uri'])
             self.tracks:  list = tracks
             self.data:    dict = {}
-
-    def __call__(self) -> dict:
-        data = self.__dict__ | self.data  # cause you can just do this ig
-        del data['data']
-        del data['directory']
-        return data
-
-    def save(self) -> None:
-        if not os.path.isdir(self.directory):
-            os.mkdir(self.directory)
-        with open(self.directory + '/.json', 'w') as file:
-            file.write(json.dumps(self(), sort_keys=True, indent=4))
-
-    def load(self) -> dict:
-        with open(self.directory + '/.json', 'r') as file:
-            return json.loads(file.read())
-
     # ToDo download image file of the album art and save to file
 
 
@@ -187,43 +168,64 @@ class Track:  # ToDo
 
 
 # Discord
-class User:  # ToDo
-    def __init__(self, user: int or discord.User) -> None:
-        if isinstance(user, int):  # if user is ID and not discord.user object
-            self.directory: str = 'data/discord:member:' + str(user)
-            self.data:         dict = self.load()
-            self.id:            str = self.data.pop('id')  # do not pull id from local user, pop to remove from data
-            self.name:          str = self.data.pop('name')
-            self.discriminator: str = self.data.pop('discriminator')
-            self.bot:          bool = self.data.pop('bot')
+class User(Data):  # ToDo
+    def __init__(self, user: str or int or discord.User) -> None:
+        if isinstance(user, str):
+            super().__init__(user)
+            if self.data:
+                self.id: str = self.data.pop('id')
+                self.name: str = self.data.pop('name')
+                self.discriminator: str = self.data.pop('discriminator')
+                self.bot: bool = self.data.pop('bot')
+            else:
+                raise TypeError('Given id as User attribute with no user on file')
+        elif isinstance(user, int):
+            uri: str = 'discord:member:' + str(user)
+            super().__init__(uri)
+            if self.data:
+                self.id: str = self.data.pop('id')  # do not pull id from local user, pop to remove from data
+                self.name: str = self.data.pop('name')
+                self.discriminator: str = self.data.pop('discriminator')
+                self.bot: bool = self.data.pop('bot')
+            else:
+                raise TypeError('Given id as User attribute with no user on file')
+        elif isinstance(user, discord.member.Member):
+            uri: str = 'discord:member:' + str(user.id)
+            super().__init__(uri)
+            if self.data:
+                self.id: str = self.data.pop('id')  # do not pull id from local user, pop to remove from data
+                self.name: str = self.data.pop('name')
+                self.discriminator: str = self.data.pop('discriminator')
+                self.bot: bool = self.data.pop('bot')
+            else:
+                self.id: int = user.id
+                self.name: str = user.name
+                self.discriminator: str = user.discriminator
+                self.bot: bool = user.bot
+                self.data: dict = {}
         else:
-            self.directory:     str = 'data/discord:member:' + str(user.id)
-            self.id:            int = user.id
-            self.name:          str = user.name
-            self.discriminator: str = user.discriminator
-            self.bot:          bool = user.bot
-            self.data:         dict = {}
-
-    def __call__(self) -> dict:
-        data = self.__dict__ | self.data
-        del data['data']
-        del data['directory']
-        return data
-
-    def save(self) -> None:
-        if not os.path.isdir(self.directory):
-            os.mkdir(self.directory)
-        with open(self.directory + '/.json', 'w') as file:
-            file.write(json.dumps(self(), sort_keys=True, indent=4))
-
-    def load(self) -> dict:
-        with open(self.directory + '/.json', 'r') as file:
-            return json.loads(file.read())
+            raise TypeError('User object given unknown type')
 
 
 class Category:  # no channel should be needed, the needed ID's should just be in here
     def __init__(self) -> None:  # ToDo
         pass
+
+
+class Meta(Data):
+    def __init__(self) -> None:
+        uri = 'coda:metadata'
+        super().__init__(uri)
+        if self.data:
+            self.id_list:         list = self.data.pop('id_list')
+            self.uuid4_duplicate: bool = self.data.pop('uuid4_duplicate')
+        else:
+            self.id_list: list = []
+            self.uuid4_duplicate: bool = False
+
+    def append(self, arg) -> None:
+        self.id_list.append(arg)
+        self.save()
 
 
 def url_to_uri(url: str) -> str:
