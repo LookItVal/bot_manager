@@ -3,6 +3,8 @@ import json
 import inspect
 from types import FunctionType, CoroutineType
 from functools import wraps
+from math import e
+from decimal import *
 
 import discord
 import spotipy
@@ -26,6 +28,7 @@ def log(method: FunctionType or CoroutineType) -> FunctionType or CoroutineType:
             ctx = args[1]
             print(ctx.author.name + '#' + ctx.author.discriminator + ' invoked the following command:')
             print(ctx.message.content)
+            print('Triggering: ' + method.__name__)
             return await method(*args, **kwargs)
     else:
         print('logging method: ' + method.__name__)
@@ -86,7 +89,13 @@ class Data:
         data = self.__dict__ | self.data  # cause you can just do this ig
         del data['data']
         del data['directory']
-        return data
+        final = {}
+        for key in data.keys():
+            if key[0] == '_':
+                final[key[1:]] = data[key]
+            else:
+                final[key] = data[key]
+        return final
 
     def save(self) -> None:
         if not os.path.isdir(self.directory):
@@ -222,10 +231,19 @@ class Meta(Data):
         else:
             self.id_list: list = []
             self.uuid4_duplicate: bool = False
+            self.data: dict = {}
 
-    def append(self, arg) -> None:
+    def append_id(self, arg) -> None:
         self.id_list.append(arg)
         self.save()
+
+'''    def collision_chance(self):
+        getcontext().prec = 128
+        n = (Decimal(-e) ** (Decimal(10) ** Decimal(2)) * (Decimal(2) ** Decimal(-123))) + Decimal(1)
+        print(n)
+        d = Decimal(os.getenv('COLLISION_CONSTANT'))
+        print(d)
+        print((n/d) + Decimal(1))'''
 
 
 def url_to_uri(url: str) -> str:
