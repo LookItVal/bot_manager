@@ -198,7 +198,7 @@ class User(Data):  # ToDo
                 self.bot: bool = self.data.pop('bot')
             else:
                 raise TypeError('Given id as User attribute with no user on file')
-        elif isinstance(user, discord.member.Member):
+        elif isinstance(user, discord.member.Member) or isinstance(user, discord.user.User):
             uri: str = 'discord:member:' + str(user.id)
             super().__init__(uri)
             if self.data:
@@ -216,14 +216,33 @@ class User(Data):  # ToDo
             raise TypeError('User object given unknown type')
 
 
-class Category:  # no channel should be needed, the needed ID's should just be in here
-    def __init__(self) -> None:  # ToDo
-        pass
+class Category(Data):
+    def __init__(self, category: str or int or discord.CategoryChannel) -> None:  # ToDo
+        uri = None
+        if isinstance(category, str):
+            uri = category
+        if isinstance(category, int):
+            uri = 'discord:category:' + str(category)
+        if isinstance(category, discord.CategoryChannel):
+            uri = 'discord:category:' + str(category.id)
+        super().__init__(uri)
+        if self.data:
+            self.id: int = self.data.pop('id')
+            self.name: str = self.data.pop('name')
+            self.channels: dict = self.data.pop('channels')
+        elif isinstance(category, discord.CategoryChannel):
+            self.id: int = category.id
+            self.name: str = category.name
+            self.channels: dict = {}
+            for channel in category.channels:
+                self.channels[channel.name]: int = int(channel.id)
+            self.data = {}
+            self.save()
 
 
 class Meta(Data):
-    def __init__(self) -> None:
-        uri = 'coda:metadata'
+    def __init__(self, uri: str = None) -> None:
+        uri = uri or 'coda:metadata'
         super().__init__(uri)
         if self.data:
             self.id_list:         list = self.data.pop('id_list')
@@ -233,7 +252,7 @@ class Meta(Data):
             self.uuid4_duplicate: bool = False
             self.data: dict = {}
 
-    def append_id(self, arg) -> None:
+    def append_id(self, arg: str) -> None:
         self.id_list.append(arg)
         self.save()
 

@@ -11,6 +11,7 @@ multidict==5.1.0
 pycparser==2.20
 python-dotenv==0.17.1
 requests==2.25.1
+schedule==1.1.0
 six==1.16.0
 spotipy==2.18.0
 typing-extensions==3.10.0.0

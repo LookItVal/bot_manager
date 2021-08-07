@@ -3,6 +3,6 @@ import frame
 
 bot = aotw.AOTWBot()
 bot.run()
-# coda = frame.Meta()
-# coda.collision_chance()
+# coda = aotw.Meta()
+# print(coda.raffle_list)
 # ToDo set raffle bot function
