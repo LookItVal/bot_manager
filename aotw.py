@@ -30,8 +30,7 @@ class AOTWBot(frame.Bot):
             brief='Picks an album as the aotw'
         )
         async def pick(ctx):
-            category = frame.Category(ctx.channel.category)
-            await self.pick_raffle(category)
+            await self.pick(ctx)
 
     async def uuid4_collision(self, ctx) -> None:
         # TODO ADD BACK THE @EVERYONE ONCE THIS HAS BEEN TESTED
@@ -65,6 +64,10 @@ class AOTWBot(frame.Bot):
         if metadata.uuid4_duplicate:
             await self.uuid4_collision(ctx)
 
+    async def pick(self, ctx):
+        category = frame.Category(ctx.channel.category)
+        await self.pick_raffle(category)
+
     async def pick_raffle(self, category: str or frame.Category) -> None:
         if isinstance(category, frame.Category):
             category = category.uri
@@ -82,8 +85,6 @@ class AOTWBot(frame.Bot):
         if category in self.metadata.aotw and self.metadata[category] is not None:
             current_winners = self.metadata[category].raffles[category]
             for key, value in current_winners.items():
-                print('key: ' + key)
-                print('value: ' + value)
                 user = User(value)
                 user.raffle = {category: None}
             self.metadata[category] = None

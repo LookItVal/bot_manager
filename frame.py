@@ -24,22 +24,21 @@ def log(method: FunctionType or CoroutineType) -> FunctionType or CoroutineType:
 
         @wraps(method)
         async def logged(*args, **kwargs):
-            print()
             if isinstance(args[1], discord.ext.commands.context.Context):
                 ctx = args[1]
+                print()
                 print(ctx.author.name + '#' + ctx.author.discriminator + ' invoked the following command:')
                 print(ctx.message.content)
-            print('Triggering: ' + method.__name__)
+            print('Triggering Coroutine Method: ' + method.__name__)
             if isinstance(args[1], Category):
-                print('In Category: ' + args[1].name)
+                print('    In Category: ' + args[1].name)
             return await method(*args, **kwargs)
     else:
         print('logging method: ' + method.__name__)
 
         @wraps(method)
         def logged(*args, **kwargs):
-            print()
-            print(method.__name__ + ' called')
+            print('Triggering Method: ' + method.__name__)
             return method(*args, **kwargs)
     return logged
 
