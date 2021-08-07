@@ -3,6 +3,7 @@ import frame
 import os
 import random
 from uuid import uuid4
+# from collections import Iterator
 
 import discord
 import schedule
@@ -67,30 +68,52 @@ class AOTWBot(frame.Bot):
     async def pick_raffle(self, category: str or frame.Category) -> None:
         if isinstance(category, frame.Category):
             category = category.uri
-        self.clear_aotw(category)  # TODO THIS IS DONE START FROM HERE
+        self.clear_aotw(category)
         raffle_list = self.metadata.raffle_list(category)
-        album: Album = random.choice(raffle_list)
-        self.metadata[category] = album
+        if raffle_list:
+            album: Album = random.choice(raffle_list)
+            self.metadata[category] = album
+        else:
+            self.metadata[category] = None
         await self.notify_raffle(category)
         # Notify Raffle Change in async method here
 
     def clear_aotw(self, category: str) -> None:
-        if category in self.metadata.aotw:
-            for user in self.metadata[category].raffles[category]:
+        if category in self.metadata.aotw and self.metadata[category] is not None:
+            current_winners = self.metadata[category].raffles[category]
+            for key, value in current_winners.items():
+                print('key: ' + key)
+                print('value: ' + value)
+                user = User(value)
                 user.raffle = {category: None}
             self.metadata[category] = None
 
     async def notify_raffle(self, category: str) -> None:
-        winners = []
-        for user in self.metadata[category].raffles[category]:
-            winners.append(user)
         channel = self.channel(category)
-        await channel.send('A new album has been chosen for the week:\n' +
-                           'The Album for this week is ' + self.metadata[category].name)
+        if self.metadata[category]:
+            winners = []
+            for user in self.metadata[category].raffles[category]:
+                winners.append(user)
+            await channel.send('A new album has been chosen for the week:\n' +
+                               'The Album for this week is ' + self.metadata[category].name)
+        else:
+            await channel.send('No Raffles set for this category. There will be no Album for this week.')
 
 
 # Spotify
+'''class ADIterator():
+    def __init__(self):
+
+    def __iter__(self):
+
+    def __next__(self):
+        return User(super().__next__())'''
+
+
 class AlbumDict(dict):
+#    def __iter__(self):
+#        return ADIterator(self)
+
     def __getitem__(self, key):
         return User(super().__getitem__(key))
 
@@ -101,7 +124,7 @@ class Album(frame.Album):
         if 'raffles' in self.data:
             self.raffles = self.data.pop('raffles')
             for key, value in self.raffles.items():
-                self.raffles[key] = RaffleDict(value)
+                self.raffles[key] = AlbumDict(value)
         else:
             self.raffles = {}
 
@@ -129,7 +152,7 @@ class User(frame.User):
 
     @raffle.setter
     def raffle(self, album: None or dict) -> None:
-        if not album:
+        if album is None:
             return
         key = next(iter(album.keys()))
         if not hasattr(self, '_raffle'):
@@ -207,7 +230,11 @@ class RaffleDict(dict):
         super().__init__(val)
 
     def __getitem__(self, key):
-        return Album(super().__getitem__(key))
+        uri = super().__getitem__(key)
+        if uri is None:
+            return None
+        else:
+            return Album(super().__getitem__(key))
 
 
 class Raffle(frame.Data):
@@ -236,13 +263,17 @@ class Raffle(frame.Data):
         # value = album.uri
         if isinstance(value, frame.Album):
             value = value.uri
-        if 'https://' in value:
-            value = frame.url_to_uri(value)
-        if key in self._album:
+        if isinstance(value, str):
+            if 'https://' in value:
+                value = frame.url_to_uri(value)
+        if key in self._album and self._album[key] is not None:
             album: Album = self._album[key]
             del album.raffles[key][self.uri]
             album.save()
         self._album[key] = value
+        if self[key] is None:
+            self.save()
+            return
         album = self[key]
         if not hasattr(album.raffles, key):
             album.raffles[key] = RaffleDict({})
