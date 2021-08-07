@@ -51,13 +51,16 @@ class AOTWBot(frame.Bot):
         metadata.uuid4_duplicate = False
 
     async def raffle(self, ctx, args: str) -> None:
+        user = User(ctx.author)
+        category = frame.Category(ctx.channel.category)
+        if user.is_winner(category):
+            await ctx.send('Cannot change raffle while your album has been picked.')
+            return
         try:
             album = Album(args)
         except:
             await ctx.send('Invalid Album Link')
             return
-        user = User(ctx.author)
-        category = frame.Category(ctx.channel.category)
         user.raffle = {category.uri: album}
         await ctx.send('Raffle Set.')
         metadata = Meta()
@@ -142,7 +145,7 @@ class User(frame.User):
         if 'raffle' in self.data:
             self._raffle = self.data.pop('raffle')
         else:
-            self.raffle = None
+            self._raffle = None
 
     @property
     def raffle(self):  # ToDo cant add type hints here
@@ -156,7 +159,7 @@ class User(frame.User):
         if album is None:
             return
         key = next(iter(album.keys()))
-        if not hasattr(self, '_raffle'):
+        if not self._raffle:
             raffle = {
                 'user': self,
                 'album': None
@@ -179,6 +182,18 @@ class User(frame.User):
     def raffles(self, album: dict) -> None:
         raise KeyError('If you want this to work you gotta build it yourself.')
 
+    def is_winner(self, category: str or frame.Category):
+        if isinstance(category, frame.Category):
+            category = category.uri
+        raffle = self.raffle
+        aotw = Meta()[category]
+        if raffle is None or aotw is None:
+            return False
+        if raffle.uri in aotw.raffles[category]:
+            return True
+        else:
+            return False
+
 
 # aotw
 class Meta(frame.Meta):
@@ -191,8 +206,11 @@ class Meta(frame.Meta):
             self._aotw: dict = {}
 
     def __getitem__(self, key):
-        if self._aotw[key]:
-            return Album(self._aotw[key])
+        if key in self._aotw:
+            if self._aotw[key]:
+                return Album(self._aotw[key])
+            else:
+                return None
         else:
             return None
 
