@@ -25,10 +25,13 @@ def log(method: FunctionType or CoroutineType) -> FunctionType or CoroutineType:
         @wraps(method)
         async def logged(*args, **kwargs):
             print()
-            ctx = args[1]
-            print(ctx.author.name + '#' + ctx.author.discriminator + ' invoked the following command:')
-            print(ctx.message.content)
+            if isinstance(args[1], discord.ext.commands.context.Context):
+                ctx = args[1]
+                print(ctx.author.name + '#' + ctx.author.discriminator + ' invoked the following command:')
+                print(ctx.message.content)
             print('Triggering: ' + method.__name__)
+            if isinstance(args[1], Category):
+                print('In Category: ' + args[1].name)
             return await method(*args, **kwargs)
     else:
         print('logging method: ' + method.__name__)
@@ -43,6 +46,7 @@ def log(method: FunctionType or CoroutineType) -> FunctionType or CoroutineType:
 
 class Bot:
     TOKEN = None
+    CHANNEL_KEY = None
 
     def __new__(cls) -> object:  # i have no idea if this is the correct type but pycharm doesnt seem to care
         for name, method in inspect.getmembers(cls, inspect.isfunction):
@@ -71,6 +75,16 @@ class Bot:
 
     async def ping(self, ctx) -> None:
         await ctx.send('pong')
+
+    def channel(self, category: str or Category) -> discord.TextChannel:
+        if isinstance(category, str):
+            category = Category(category)
+        channel_id = None
+        if category.name == 'Dev Corner':
+            channel_id = category.channels['bot-test-zone']
+        else:
+            channel_id = category.channels[self.CHANNEL_KEY]
+        return self.discord_bot.get_channel(channel_id)
 
     def run(self) -> None:
         self.discord_bot.run(self.TOKEN)

@@ -10,6 +10,7 @@ import schedule
 
 class AOTWBot(frame.Bot):
     TOKEN = os.getenv('DISCORD_TOKEN')
+    CHANNEL_KEY = 'album-of-the-week'
 
     def __init__(self) -> None:
         super().__init__()
@@ -22,14 +23,24 @@ class AOTWBot(frame.Bot):
         async def raffle(ctx, args):
             await self.raffle(ctx, args)
 
+        @self.discord_bot.command(
+            help='From a list of every raffle set by the Members of this channel, pick an album at random to be the ' +
+                 'album of the week',
+            brief='Picks an album as the aotw'
+        )
+        async def pick(ctx):
+            category = frame.Category(ctx.channel.category)
+            await self.pick_raffle(category)
+
     async def uuid4_collision(self, ctx) -> None:
-        await ctx.send('@everyone THE IMPOSSIBLE HAS HAPPENED!')
-        # await ctx.send('THE IMPOSSIBLE HAS HAPPENED!')
-        await ctx.send('<@!' + str(ctx.author.id) + '> Generated a DUPLICATE ID based on pythons UUID4!')
-        await ctx.send('The number of random version-4 UUIDs which need to be generated in order to have a 50%' +
-                       ' probability of at least one collision is 2.71 QUINTILLION.')
-        await ctx.send('This number is equivalent to generating 1 billion UUIDs per second for about 85 years.')
-        await ctx.send('The probability to find a duplicate within 103 trillion version-4 UUIDs is one in a billion.')
+        # TODO ADD BACK THE @EVERYONE ONCE THIS HAS BEEN TESTED
+        await ctx.send('THE IMPOSSIBLE HAS HAPPENED!\n' +
+                       '<@!' + str(ctx.author.id) + '> Generated a DUPLICATE ID based on pythons UUID4!\n' +
+                       'The number of random version-4 UUIDs which need to be generated in order to have a 50%' +
+                       ' probability of at least one collision is 2.71 QUINTILLION.\n' +
+                       'This number is equivalent to generating 1 billion UUIDs per second for about 85 years.\n' +
+                       'The probability to find a duplicate within 103 trillion version-4 UUIDs is one in a ' +
+                       'billion.\n')
         embed = discord.Embed(description='[Universally Uniquie Identifier](https://en.wikipedia.org/wiki/Universally' +
                                           '_unique_identifier#:~:text=This%20number%20is%20equivalent%20to,would%20be' +
                                           '%20about%2045%20exabytes.&text=Thus%2C%20the%20probability%20to%20find,is%' +
@@ -53,30 +64,29 @@ class AOTWBot(frame.Bot):
         if metadata.uuid4_duplicate:
             await self.uuid4_collision(ctx)
 
-    async def pick_raffle(self, category: uri) -> None:
-        self.clear_aotw()
-        aotw = None
-        raffle_list = self.metadata.raffle_list
-        while aotw is None:
-            if not raffle_list:
-                print('All Raffles Empty')
-                break
-            raffle = random.choice(raffle_list)
-            raffle_list.remove(raffle)
-            raffle = Raffle(raffle)
-            aotw = raffle.album
-        self.metadata.aotw = aotw
-        if aotw:
-            pass
-            # Notify Raffle Change in async method here
+    async def pick_raffle(self, category: str or frame.Category) -> None:
+        if isinstance(category, frame.Category):
+            category = category.uri
+        self.clear_aotw(category)  # TODO THIS IS DONE START FROM HERE
+        raffle_list = self.metadata.raffle_list(category)
+        album: Album = random.choice(raffle_list)
+        self.metadata[category] = album
+        await self.notify_raffle(category)
+        # Notify Raffle Change in async method here
 
-    def clear_aotw(self) -> None:
-        aotw = self.metadata.aotw
-        if aotw is None:
-            return
-        if aotw:
-            for user in aotw.raffles:
-                user.raffle = None
+    def clear_aotw(self, category: str) -> None:
+        if category in self.metadata.aotw:
+            for user in self.metadata[category].raffles[category]:
+                user.raffle = {category: None}
+            self.metadata[category] = None
+
+    async def notify_raffle(self, category: str) -> None:
+        winners = []
+        for user in self.metadata[category].raffles[category]:
+            winners.append(user)
+        channel = self.channel(category)
+        await channel.send('A new album has been chosen for the week:\n' +
+                           'The Album for this week is ' + self.metadata[category].name)
 
 
 # Spotify
@@ -152,32 +162,43 @@ class Meta(frame.Meta):
         uri = 'aotw:metadata'
         super().__init__(uri)
         if 'aotw' in self.data:
-            self.aotw = self.data.pop('aotw')
+            self._aotw: dict = self.data.pop('aotw')
         else:
-            self.aotw = None
+            self._aotw: dict = {}
 
-    @property
-    def aotw(self) -> Album or None:
-        if self._aotw:
-            return Album(self._aotw)
+    def __getitem__(self, key):
+        if self._aotw[key]:
+            return Album(self._aotw[key])
         else:
             return None
 
-    @aotw.setter
-    def aotw(self, album: str or frame.Album) -> None:
-        if isinstance(album, frame.Album):
-            album = album.uri
-        self._aotw = album
+    def __setitem__(self, key: str or frame.Category, value: str or frame.Album):
+        if isinstance(key, frame.Category):
+            key = key.uri
+        if isinstance(value, frame.Album):
+            value = value.uri
+        self._aotw[key] = value
         self.save()
 
     @property
-    def raffle_list(self):
+    def aotw(self):
+        return self._aotw
+
+    def raffle_list(self, category: str = None) -> list:
         directories = os.listdir(os.path.join(os.getcwd(), r'data/'))
         raffles = []
         for dir in directories:
             if 'aotw:raffle:' in dir:
                 raffles.append(dir)
-        return raffles
+        if category is None:
+            return raffles
+        final = []
+        for raffle in raffles:
+            raffle = Raffle(raffle)
+            if category in raffle.albums:
+                if raffle[category] is not None:
+                    final.append(raffle[category])
+        return final
 
 
 class RaffleDict(dict):
@@ -224,7 +245,7 @@ class Raffle(frame.Data):
         self._album[key] = value
         album = self[key]
         if not hasattr(album.raffles, key):
-            album.raffles[key] = {}
+            album.raffles[key] = RaffleDict({})
         album.raffles[key][self.uri] = self._user
         album.save()
         self.save()
