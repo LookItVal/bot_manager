@@ -24,6 +24,8 @@ def log(method: FunctionType or CoroutineType) -> FunctionType or CoroutineType:
 
         @wraps(method)
         async def logged(*args, **kwargs):
+            if method.__name__ == 'on_ready':
+                return await method(*args, **kwargs)
             if isinstance(args[1], discord.ext.commands.context.Context):
                 ctx = args[1]
                 print()
@@ -43,60 +45,14 @@ def log(method: FunctionType or CoroutineType) -> FunctionType or CoroutineType:
     return logged
 
 
-class Bot:
-    TOKEN = None
-    CHANNEL_KEY = None
-
-    def __new__(cls) -> object:  # i have no idea if this is the correct type but pycharm doesnt seem to care
-        for name, method in inspect.getmembers(cls, inspect.isfunction):
-            if name[:1] == '_':
-                continue
-            setattr(cls, name, log(method))
-        return super(Bot, cls).__new__(cls)
-
-    def __init__(self) -> None:
-        self.discord_bot = commands.Bot(command_prefix=COMMAND_PREFIX)
-
-        @self.discord_bot.event
-        async def on_ready():
-            print()
-            print('Discord Bot Ready')
-
-        @self.discord_bot.command(
-            help="Returns pong if bot is properly connected to the server.",
-            brief="Prints pong back to the channel."
-        )
-        async def ping(ctx):
-            await self.ping(ctx)
-
-    def __call__(self) -> None:
-        self.run()
-
-    async def ping(self, ctx) -> None:
-        await ctx.send('pong')
-
-    def channel(self, category: str or Category) -> discord.TextChannel:
-        if isinstance(category, str):
-            category = Category(category)
-        channel_id = None
-        if category.name == 'Dev Corner':
-            channel_id = category.channels['bot-test-zone']
-        else:
-            channel_id = category.channels[self.CHANNEL_KEY]
-        return self.discord_bot.get_channel(channel_id)
-
-    def run(self) -> None:
-        self.discord_bot.run(self.TOKEN)
-
-
 class Data:
     def __init__(self, uri: str) -> None:
-        self.data:     dict = None
-        self.uri:       str = uri
-        self.directory: str = os.path.join(os.getcwd(), r'data/' + uri)
+        self.data: None or dict = None
+        self.uri:           str = uri
+        self.directory:     str = os.path.join(os.getcwd(), r'data/' + uri)
         if os.path.isdir(self.directory):
-            self.data: dict = self.load()
-            self.uri:   str = self.data.pop('uri')  # feels redundant but is needed to remove the uri from self.data
+            self.data:     dict = self.load()
+            self.uri:       str = self.data.pop('uri')  # feels redundant but is needed to remove the uri from self.data
 
     def __call__(self) -> dict:
         data = self.__dict__ | self.data  # cause you can just do this ig
@@ -160,7 +116,7 @@ class Artist:
 class Album(Data):
     def __init__(self, uri: str) -> None:
         if 'https://' in uri:
-            uri = url_to_uri(uri)
+            uri = Frame.url_to_uri(uri)
         super().__init__(uri)
         if self.data:
             self.name:     str = self.data.pop('name')
@@ -253,21 +209,61 @@ class Category(Data):
             self.save()
 
 
+# Coda
 class Meta(Data):
-    def __init__(self, uri: str = None) -> None:
-        uri = uri or 'coda:metadata'
+    def __init__(self, uri: str) -> None:
         super().__init__(uri)
         if self.data:
             self.id_list:         list = self.data.pop('id_list')
             self.uuid4_duplicate: bool = self.data.pop('uuid4_duplicate')
+            self.channel_key:      str = self.data.pop('channel_key')
         else:
-            self.id_list: list = []
+            self.id_list:         list = []
             self.uuid4_duplicate: bool = False
-            self.data: dict = {}
+            self.data:            dict = {}
 
     def append_id(self, arg: str) -> None:
         self.id_list.append(arg)
         self.save()
+
+    def channel(self, category: str or Category) -> discord.TextChannel:
+        if isinstance(category, str):
+            category = Category(category)
+        channel_id = None
+        if category.name == 'Dev Corner':
+            channel_id = category.channels['bot-test-zone']
+        else:
+            channel_id = category.channels[self.channel_key]
+        return self.bot.get_channel(channel_id)
+
+    @staticmethod
+    def url_to_uri(url: str) -> str:
+        if 'https://' in url:
+            split = url.split('/')
+            uri = 'spotify:' + split[3] + ':' + split[4][:22]
+            return uri
+        else:
+            raise TypeError('Please give Spotify Link')
+
+    @staticmethod
+    def pretty_print(data: dict) -> str:
+        data = json.dumps(data, sort_keys=True, indent=4)
+        print(data)
+        return data
+
+    @staticmethod
+    def is_album_url(url):
+        if 'https://open.spotify.com/album/' in url:
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def is_album_uri(uri):
+        if 'spotify:album:' in uri:
+            return True
+        else:
+            return False
 
 '''    def collision_chance(self):
         getcontext().prec = 128
@@ -278,16 +274,51 @@ class Meta(Data):
         print((n/d) + Decimal(1))'''
 
 
-def url_to_uri(url: str) -> str:
-    if 'https://' in url:
-        split = url.split('/')
-        uri = 'spotify:' + split[3] + ':' + split[4][:22]
-        return uri
-    else:
-        raise TypeError('Please give Spotify Link')
+class Frame(Meta):
+    TOKEN = os.getenv('DISCORD_TOKEN')
+    CHANNEL_KEY = None
+
+    def __new__(cls, *args, **kwargs) -> object:  # i have no idea if this is the correct type but pycharm doesnt care
+        for name, method in inspect.getmembers(cls, inspect.isfunction):
+            if hasattr(Meta, name):
+                continue
+            if name[:1] == '_':
+                continue
+            setattr(cls, name, log(method))
+        return super(Frame, cls).__new__(cls, *args, **kwargs)
+
+    def __init__(self, uri: str = None) -> None:
+        self.bot = commands.Bot(command_prefix=COMMAND_PREFIX)
+        self.bot.add_cog(MainCog(self))
+        uri = uri or 'coda:metadata'
+        super().__init__(uri)
+
+    def __call__(self) -> dict:
+        data = super().__call__()
+        del data['bot']
+        return data
+
+    def on_ready(self):
+        print('Discord Bot Ready')
+
+    async def ping(self, ctx):
+        await ctx.send('pong')
+
+    def run(self) -> None:
+        self.bot.run(self.TOKEN)
 
 
-def pretty_print(data: dict) -> str:
-    data = json.dumps(data, sort_keys=True, indent=4)
-    print(data)
-    return data
+class MainCog(commands.Cog):
+    def __init__(self, bot: Frame):
+        self.bot = bot
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        self.bot.on_ready()
+
+    @commands.command(
+        help="Returns pong if bot is properly connected to the server.",
+        brief="Prints pong back to the channel."
+    )
+    async def ping(self, ctx):
+        await self.bot.ping(ctx)
