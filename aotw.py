@@ -93,6 +93,10 @@ class Meta(frame.Meta):
         if uri is None:
             uri = 'aotw:metadata'
         super().__init__(uri)
+        if 'schedule' in self.data:
+            self._schedule: list = self.data.pop('schedule')
+        else:
+            self.schedule = 'Monday 04:00'
         if 'aotw' in self.data:
             self._aotw: dict = self.data.pop('aotw')
         else:
@@ -115,6 +119,44 @@ class Meta(frame.Meta):
         if isinstance(value, frame.Album):
             value = value.uri
         self._aotw[key] = value
+        self.save()
+
+    @property
+    def schedule(self):
+        return self._schedule
+
+    @schedule.setter
+    def schedule(self, date: str):
+        date = date.lower()
+        if ' ' in date:
+            date = date.split(' ')
+            if ':' in date[1]:
+                date = [date[0]] + date[1].split(':')
+            else:
+                raise ValueError('date must be Day, 24hr Time, or Both.')
+        elif ':' in date:
+            date = [None] + date.split(':')
+        elif 'day' in date:
+            date = [date, None, None]
+        else:
+            raise ValueError('date must be Day, 24hr Time, or Both.')
+        if date[0] is not None and not date[0].upper() in frame.DAYS:
+            raise ValueError('date must be Day, 24hr Time, or Both.')
+        if date[1] is not None and not 0 <= int(date[1]) < 24:
+            raise ValueError('date must be Day, 24hr Time, or Both.')
+        if date[2] is not None and not 0 <= int(date[2]) < 60:
+            raise ValueError('date must be Day, 24hr Time, or Both.')
+        if not hasattr(self, '_schedule'):
+            self._schedule = [None, None, None]
+        if date[0] is not None:
+            date[0] = date[0][0].upper() + date[0][1:]
+        if date[1] is not None and 0 <= int(date[1]) < 10:
+            date[1] = '0' + str(int(date[1]))
+        if date[2] is not None and 0 <= int(date[2]) < 10:
+            date[2] = '0' + str(int(date[2]))
+        for key, value in enumerate(date):
+            if value is not None:
+                self._schedule[key] = value
         self.save()
 
     @property
@@ -237,7 +279,6 @@ class AOTW(frame.Frame, Meta):
     CHANNEL_KEY = 'album-of-the-week'
 
     def __init__(self) -> None:
-        print(AOTW.__mro__)
         super().__init__('aotw:metadata')
         self.bot.add_cog(AOTWCog(self))
 
@@ -259,14 +300,14 @@ class AOTW(frame.Frame, Meta):
         metadata = Meta()
         metadata.uuid4_duplicate = False
 
-    async def raffle(self, ctx, args: str) -> None:
+    async def raffle(self, ctx, arg: str) -> None:
         user = User(ctx.author)
         category = frame.Category(ctx.channel.category)
         if user.is_winner(category):
             await ctx.send('Cannot change raffle while your album has been picked.')
             return
         try:
-            album = Album(args)
+            album = Album(arg)
         except:
             await ctx.send('Invalid Album Link')
             return
@@ -279,6 +320,12 @@ class AOTW(frame.Frame, Meta):
     async def pick(self, ctx):
         category = frame.Category(ctx.channel.category)
         await self.pick_raffle(category)
+
+    async def set_schedule(self, ctx, *args):
+        self.schedule = args[0]
+        if len(args) >= 2:
+            self.schedule = args[1]
+        await ctx.send('Schedule set for ' + self.schedule[0] + ' at ' + self.schedule[1] + ':' + self.schedule[2])
 
     async def pick_raffle(self, category: str or frame.Category) -> None:
         if isinstance(category, frame.Category):
@@ -321,8 +368,8 @@ class AOTWCog(commands.Cog):
         help='Give a spotify album url or uri to set as your raffle for the next Album of the Week.',
         brief='Sets your album raffle'
     )
-    async def raffle(self, ctx, args):
-        await self.bot.raffle(ctx, args)
+    async def raffle(self, ctx, *args):
+        await self.bot.raffle(ctx, args[0])
 
     @commands.command(
         help='From a list of every raffle set by the Members of this channel, pick an album at random to be the ' +
@@ -331,3 +378,12 @@ class AOTWCog(commands.Cog):
     )
     async def pick(self, ctx):
         await self.bot.pick(ctx)
+
+    @commands.command(
+        help='Sets the schedule for when the Album of the Week is picked each week. Argument 1 must be the ' +
+             'Day of the week, and argument 2 must be the Time of day in the form of a 24 hour clock.\n' +
+             'example: "!schedule Monday 17:00" would set the Album of the Week to set every Monday at 5pm',
+        brief='Chooses when to set the Album of the Week'
+    )
+    async def schedule(self, ctx, *args):
+        await self.bot.set_schedule(ctx, *args)

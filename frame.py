@@ -16,6 +16,13 @@ auth_manager = spotipy.oauth2.SpotifyClientCredentials()
 sp = spotipy.Spotify(auth_manager=auth_manager)
 
 COMMAND_PREFIX = os.getenv('COMMAND_PREFIX')
+DAYS = ['MONDAY',
+        'TUESDAY',
+        'WEDNESDAY',
+        'THURSDAY',
+        'FRIDAY',
+        'SATURDAY',
+        'SUNDAY']
 
 
 def log(method: FunctionType or CoroutineType) -> FunctionType or CoroutineType:
