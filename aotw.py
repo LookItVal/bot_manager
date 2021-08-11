@@ -382,11 +382,16 @@ class AOTW(frame.Frame, Meta):
     async def notify_raffle(self, category: str) -> None:
         channel = self.channel(category)
         if self[category]:
-            winners = []
-            for user in self[category].raffles[category]:
-                winners.append(user)
             await channel.send('A new album has been chosen for the week:\n' +
-                               'The Album for this week is ' + self[category].name)
+                               'The Album for this week is ' + self[category].name + ', which was chosen by:')
+            for user in self[category].raffles[category].values():
+                await channel.send('<@!' + str(User(user).id) + '>')
+            embed = discord.Embed(
+                description='[' + self[category].name + '](https://en.wikipedia.org/wiki/Universally' +
+                            '_unique_identifier#:~:text=This%20number%20is%20equivalent%20to,would%20be' +
+                            '%20about%2045%20exabytes.&text=Thus%2C%20the%20probability%20to%20find,is%' +
+                            '20one%20in%20a%20billion.)')
+            await channel.send(embed=embed)
         else:
             await channel.send('No Raffles set for this category. There will be no Album for this week.')
 
