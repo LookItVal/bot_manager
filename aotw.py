@@ -2,10 +2,12 @@ import frame
 
 import os
 import random
+import asyncio
+from datetime import datetime
 from uuid import uuid4
 
 import discord
-from discord.ext import commands
+from discord.ext import tasks, commands
 
 
 # Spotify
@@ -94,9 +96,9 @@ class Meta(frame.Meta):
             uri = 'aotw:metadata'
         super().__init__(uri)
         if 'schedule' in self.data:
-            self._schedule: list = self.data.pop('schedule')
+            self._schedule: dict = self.data.pop('schedule')
         else:
-            self.schedule = 'Monday 04:00'
+            self._schedule = {}
         if 'aotw' in self.data:
             self._aotw: dict = self.data.pop('aotw')
         else:
@@ -126,8 +128,11 @@ class Meta(frame.Meta):
         return self._schedule
 
     @schedule.setter
-    def schedule(self, date: str):
-        date = date.lower()
+    def schedule(self, date: list):
+        category = date[0]
+        if isinstance(category, frame.Category):
+            category = category.uri
+        date = date[1].lower()
         if ' ' in date:
             date = date.split(' ')
             if ':' in date[1]:
@@ -146,22 +151,40 @@ class Meta(frame.Meta):
             raise ValueError('date must be Day, 24hr Time, or Both.')
         if date[2] is not None and not 0 <= int(date[2]) < 60:
             raise ValueError('date must be Day, 24hr Time, or Both.')
-        if not hasattr(self, '_schedule'):
-            self._schedule = [None, None, None]
         if date[0] is not None:
             date[0] = date[0][0].upper() + date[0][1:]
         if date[1] is not None and 0 <= int(date[1]) < 10:
             date[1] = '0' + str(int(date[1]))
         if date[2] is not None and 0 <= int(date[2]) < 10:
             date[2] = '0' + str(int(date[2]))
+        if category not in self._schedule:
+            self._schedule[category] = [None, None, None]
         for key, value in enumerate(date):
             if value is not None:
-                self._schedule[key] = value
+                self._schedule[category][key] = value
         self.save()
 
     @property
     def aotw(self):
         return self._aotw
+
+    @property
+    def scheduled_categories(self):
+        categories = []
+        for item in self._schedule.keys():
+            categories.append(item)
+        return categories
+
+    def is_date(self, category):
+        now = datetime.now()
+        if not self.schedule[category][0].upper() == frame.DAYS[now.weekday()]:
+            return False
+        elif not int(self.schedule[category][1]) == now.hour:
+            return False
+        elif not int(self.schedule[category][2]) == now.minute:
+            return False
+        else:
+            return True
 
     def raffle_list(self, category: str = None) -> list:
         directories = os.listdir(os.path.join(os.getcwd(), r'data/'))
@@ -291,7 +314,7 @@ class AOTW(frame.Frame, Meta):
                        'This number is equivalent to generating 1 billion UUIDs per second for about 85 years.\n' +
                        'The probability to find a duplicate within 103 trillion version-4 UUIDs is one in a ' +
                        'billion.\n')
-        embed = discord.Embed(description='[Universally Uniquie Identifier](https://en.wikipedia.org/wiki/Universally' +
+        embed = discord.Embed(description='[Universally Unique Identifier](https://en.wikipedia.org/wiki/Universally' +
                                           '_unique_identifier#:~:text=This%20number%20is%20equivalent%20to,would%20be' +
                                           '%20about%2045%20exabytes.&text=Thus%2C%20the%20probability%20to%20find,is%' +
                                           '20one%20in%20a%20billion.)')
@@ -317,15 +340,24 @@ class AOTW(frame.Frame, Meta):
         if metadata.uuid4_duplicate:
             await self.uuid4_collision(ctx)
 
+    async def picker(self, category):  # ToDo HERE HERE HERE
+        while True:
+            while not self.is_date(category):
+                await asyncio.sleep(30)
+            await self.pick_raffle(category)
+            await asyncio.sleep(60)
+
     async def pick(self, ctx):
         category = frame.Category(ctx.channel.category)
         await self.pick_raffle(category)
 
     async def set_schedule(self, ctx, *args):
-        self.schedule = args[0]
+        category = frame.Category(ctx.channel.category).uri
+        self.schedule = [category, args[0]]
         if len(args) >= 2:
-            self.schedule = args[1]
-        await ctx.send('Schedule set for ' + self.schedule[0] + ' at ' + self.schedule[1] + ':' + self.schedule[2])
+            self.schedule = [category, args[1]]
+        await ctx.send('Schedule set for ' + self.schedule[category][0] + ' at ' +
+                       self.schedule[category][1] + ':' + self.schedule[category][2])
 
     async def pick_raffle(self, category: str or frame.Category) -> None:
         if isinstance(category, frame.Category):
@@ -363,6 +395,7 @@ class AOTW(frame.Frame, Meta):
 class AOTWCog(commands.Cog):
     def __init__(self, bot: AOTW) -> None:
         self.bot = bot
+        self.picker.start()
 
     @commands.command(  # ToDo Give a more exact description of what the raffle is here
         help='Give a spotify album url or uri to set as your raffle for the next Album of the Week.',
@@ -376,6 +409,7 @@ class AOTWCog(commands.Cog):
              'album of the week',
         brief='Picks an album as the aotw'
     )
+    @commands.has_any_role('Moderator', 'Administrator')
     async def pick(self, ctx):
         await self.bot.pick(ctx)
 
@@ -385,5 +419,22 @@ class AOTWCog(commands.Cog):
              'example: "!schedule Monday 17:00" would set the Album of the Week to set every Monday at 5pm',
         brief='Chooses when to set the Album of the Week'
     )
+    @commands.has_any_role('Moderator', 'Administrator')
     async def schedule(self, ctx, *args):
         await self.bot.set_schedule(ctx, *args)
+
+    @tasks.loop(count=1)
+    async def picker(self):
+        categories = self.bot.scheduled_categories
+        pickers = await asyncio.gather(*(self.bot.picker(category) for category in categories))
+        loop = asyncio.get_event_loop()
+        asyncio.ensure_future(pickers)
+        try:
+            loop.run_forever()
+        finally:
+            loop.close()
+
+    @picker.before_loop
+    async def before_picker(self):
+        print('pickers waiting for bot to initialize')
+        await self.bot.bot.wait_until_ready()

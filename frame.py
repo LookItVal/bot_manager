@@ -43,12 +43,13 @@ def log(method: FunctionType or CoroutineType) -> FunctionType or CoroutineType:
                 print('    In Category: ' + args[1].name)
             return await method(*args, **kwargs)
     else:
-        print('logging method: ' + method.__name__)
-
-        @wraps(method)
-        def logged(*args, **kwargs):
-            print('Triggering Method: ' + method.__name__)
-            return method(*args, **kwargs)
+        logged = method
+#        print('logging method: ' + method.__name__)
+#
+#        @wraps(method)
+#        def logged(*args, **kwargs):
+#            print('Triggering Method: ' + method.__name__)
+#            return method(*args, **kwargs)
     return logged
 
 
