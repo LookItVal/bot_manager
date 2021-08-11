@@ -299,7 +299,6 @@ class Review:  # ToDo
 
 class AOTW(frame.Frame, Meta):
     TOKEN = os.getenv('DISCORD_TOKEN')
-    CHANNEL_KEY = 'album-of-the-week'
 
     def __init__(self) -> None:
         super().__init__('aotw:metadata')

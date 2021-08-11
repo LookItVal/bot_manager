@@ -284,7 +284,6 @@ class Meta(Data):
 
 class Frame(Meta):
     TOKEN = os.getenv('DISCORD_TOKEN')
-    CHANNEL_KEY = None
 
     def __new__(cls, *args, **kwargs) -> object:  # i have no idea if this is the correct type but pycharm doesnt care
         for name, method in inspect.getmembers(cls, inspect.isfunction):
@@ -330,3 +329,9 @@ class MainCog(commands.Cog):
     )
     async def ping(self, ctx):
         await self.bot.ping(ctx)
+
+# ToDo Unsure as to why this doesnt work.
+#    @commands.Cog.listener()
+#    async def on_message(self, ctx):
+#        if ctx.channel.name == self.bot.channel_key:
+#            await self.bot.bot.process_commands(ctx)
