@@ -144,6 +144,12 @@ class Album(Data):
             self.data:    dict = {}
     # ToDo download image file of the album art and save to file
 
+    @property
+    def link(self):
+        split = self.uri.split(':')
+        link = 'https://open.spotify.com/album/' + split[2] + '?si=0TXLfNv_QBOygNuRomGbQg&dl_branch=1'
+        return link
+
 
 class Track:  # ToDo
     def __init__(self, link) -> None:  # ToDo
