@@ -387,10 +387,7 @@ class AOTW(frame.Frame, Meta):
             for user in self[category].raffles[category].values():
                 await channel.send('<@!' + str(User(user).id) + '>')
             embed = discord.Embed(
-                description='[' + self[category].name + '](https://en.wikipedia.org/wiki/Universally' +
-                            '_unique_identifier#:~:text=This%20number%20is%20equivalent%20to,would%20be' +
-                            '%20about%2045%20exabytes.&text=Thus%2C%20the%20probability%20to%20find,is%' +
-                            '20one%20in%20a%20billion.)')
+                description='[' + self[category].name + '](' + self[category].link + ')')
             await channel.send(embed=embed)
         else:
             await channel.send('No Raffles set for this category. There will be no Album for this week.')
@@ -430,6 +427,8 @@ class AOTWCog(commands.Cog):
     @tasks.loop(count=1)
     async def picker(self):
         categories = self.bot.scheduled_categories
+        if not categories:
+            return
         pickers = await asyncio.gather(*(self.bot.picker(category) for category in categories))
         loop = asyncio.get_event_loop()
         asyncio.ensure_future(pickers)
