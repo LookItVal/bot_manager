@@ -305,8 +305,7 @@ class AOTW(frame.Frame, Meta):
         self.bot.add_cog(AOTWCog(self))
 
     async def uuid4_collision(self, ctx) -> None:
-        # TODO ADD BACK THE @EVERYONE ONCE THIS HAS BEEN TESTED
-        await ctx.send('THE IMPOSSIBLE HAS HAPPENED!\n' +
+        await ctx.send('@everyone THE IMPOSSIBLE HAS HAPPENED!\n' +
                        '<@!' + str(ctx.author.id) + '> Generated a DUPLICATE ID based on pythons UUID4!\n' +
                        'The number of random version-4 UUIDs which need to be generated in order to have a 50%' +
                        ' probability of at least one collision is 2.71 QUINTILLION.\n' +
@@ -353,7 +352,7 @@ class AOTW(frame.Frame, Meta):
         if metadata.uuid4_duplicate:
             await self.uuid4_collision(ctx)
 
-    async def picker(self, category):  # ToDo HERE HERE HERE
+    async def picker(self, category):
         while True:
             while not self.is_date(category):
                 await asyncio.sleep(30)

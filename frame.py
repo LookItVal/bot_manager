@@ -160,7 +160,7 @@ class Track:  # ToDo
 
 
 # Discord
-class User(Data):  # ToDo
+class User(Data):
     def __init__(self, user: str or int or discord.User) -> None:
         if isinstance(user, str):
             super().__init__(user)
@@ -200,7 +200,7 @@ class User(Data):  # ToDo
 
 
 class Category(Data):
-    def __init__(self, category: str or int or discord.CategoryChannel) -> None:  # ToDo
+    def __init__(self, category: str or int or discord.CategoryChannel) -> None:
         uri = None
         if isinstance(category, str):
             uri = category
