@@ -1,7 +1,7 @@
 import aotw
 import frame
 
-VERSION = '1.0.1'
+VERSION = '1.0.2'
 
 bot = aotw.AOTW()
 bot.run()

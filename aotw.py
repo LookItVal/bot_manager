@@ -70,7 +70,7 @@ class User(frame.User):
         if self._raffle:
             return Raffle(self._raffle).albums
         else:
-            return None
+            return []
 
     @raffles.setter
     def raffles(self, album: dict) -> None:
@@ -322,6 +322,20 @@ class AOTW(frame.Frame, Meta):
         metadata = Meta()
         metadata.uuid4_duplicate = False
 
+    async def get_raffle(self, ctx):
+        user = User(ctx.author)
+        category = frame.Category(ctx.channel.category).uri
+        raffles = user.raffles
+        if category in raffles and user.raffle[category] is not None:
+            album = user.raffle[category]
+            await ctx.send('Your current raffle for this category is: ' + album.name)
+            embed = discord.Embed(
+                description='[' + album.name + '](' + album.link + ')')
+            await ctx.send(embed=embed)
+        else:
+            await ctx.send('You currently have no chosen raffle. To set your raffle send "!raffle" followed by a ' +
+                           'spotify link to the album you would like to pick.')
+
     async def raffle(self, ctx, arg: str) -> None:
         user = User(ctx.author)
         category = frame.Category(ctx.channel.category)
@@ -383,7 +397,7 @@ class AOTW(frame.Frame, Meta):
         channel = self.channel(category)
         if self[category]:
             await channel.send('A new album has been chosen for the week:\n' +
-                               'The Album for this week is ' + self[category].name + ', which was chosen by:')
+                               'The Album for this week is: ' + self[category].name + ', which was chosen by:')
             for user in self[category].raffles[category].values():
                 await channel.send('<@!' + str(User(user).id) + '>')
             embed = discord.Embed(
@@ -398,12 +412,16 @@ class AOTWCog(commands.Cog):
         self.bot = bot
         self.picker.start()
 
-    @commands.command(  # ToDo Give a more exact description of what the raffle is here
-        help='Give a spotify album url or uri to set as your raffle for the next Album of the Week.',
+    @commands.command(
+        help='Give a spotify album url or uri to set as your raffle for the next Album of the Week. Informs you of ' +
+             'your current raffle if no album send.',
         brief='Sets your album raffle'
     )
     async def raffle(self, ctx, *args):
-        await self.bot.raffle(ctx, args[0])
+        if not args:
+            await self.bot.get_raffle(ctx)
+        else:
+            await self.bot.raffle(ctx, args[0])
 
     @commands.command(
         help='From a list of every raffle set by the Members of this channel, pick an album at random to be the ' +
