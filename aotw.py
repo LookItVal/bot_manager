@@ -7,7 +7,7 @@ from datetime import datetime
 from uuid import uuid4
 
 import discord
-from discord.ext import tasks, commands
+from discord.ext import tasks, commands, forms
 
 
 # Spotify
@@ -458,3 +458,6 @@ class AOTWCog(commands.Cog):
     async def before_picker(self):
         print('pickers waiting for bot to initialize')
         await self.bot.bot.wait_until_ready()
+
+async def is_true(ctx, message):
+    return True

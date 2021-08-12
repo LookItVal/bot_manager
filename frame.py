@@ -24,6 +24,10 @@ DAYS = ['MONDAY',
         'SATURDAY',
         'SUNDAY']
 
+slash = '/'
+if os.name == 'nt':
+    slash = '\\'
+
 
 def log(method: FunctionType or CoroutineType) -> FunctionType or CoroutineType:
     if inspect.iscoroutinefunction(method):
@@ -55,10 +59,6 @@ def log(method: FunctionType or CoroutineType) -> FunctionType or CoroutineType:
 
 class Data:
     def __init__(self, uri: str) -> None:
-        slash = '/'
-        if os.name == 'nt':
-            slash = '\\'
-
         self.data: None or dict = None
         self.uri:           str = uri
         filename = uri.replace(':', '.')
@@ -82,11 +82,11 @@ class Data:
     def save(self) -> None:
         if not os.path.isdir(self.directory):
             os.mkdir(self.directory)
-        with open(self.directory + '.json', 'w') as file:                 # Windows filepath
+        with open(self.directory + slash +'.json', 'w') as file:                 # Windows filepath
             file.write(json.dumps(self(), sort_keys=True, indent=4))
 
     def load(self) -> dict:
-        with open(self.directory + '.json', 'r') as file:                 # Windows filepath
+        with open(self.directory + slash + '.json', 'r') as file:                 # Windows filepath
             return json.loads(file.read())
 
 
