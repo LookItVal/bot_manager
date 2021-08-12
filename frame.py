@@ -55,9 +55,14 @@ def log(method: FunctionType or CoroutineType) -> FunctionType or CoroutineType:
 
 class Data:
     def __init__(self, uri: str) -> None:
+        slash = '/'
+        if os.name == 'nt':
+            slash = '\\'
+
         self.data: None or dict = None
         self.uri:           str = uri
-        self.directory:     str = os.path.join(os.getcwd(), r'data/' + uri)
+        filename = uri.replace(':', '.')
+        self.directory: str = os.path.join(os.getcwd(), r'data' + slash + filename)
         if os.path.isdir(self.directory):
             self.data:     dict = self.load()
             self.uri:       str = self.data.pop('uri')  # feels redundant but is needed to remove the uri from self.data
@@ -77,11 +82,11 @@ class Data:
     def save(self) -> None:
         if not os.path.isdir(self.directory):
             os.mkdir(self.directory)
-        with open(self.directory + '/.json', 'w') as file:
+        with open(self.directory + '.json', 'w') as file:                 # Windows filepath
             file.write(json.dumps(self(), sort_keys=True, indent=4))
 
     def load(self) -> dict:
-        with open(self.directory + '/.json', 'r') as file:
+        with open(self.directory + '.json', 'r') as file:                 # Windows filepath
             return json.loads(file.read())
 
 
