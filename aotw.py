@@ -190,7 +190,7 @@ class Meta(frame.Meta):
         directories = os.listdir(os.path.join(os.getcwd(), r'data/'))
         raffles = []
         for dir in directories:
-            if 'aotw:raffle:' in dir:
+            if 'aotw.raffle.' in dir:
                 raffles.append(dir)
         if category is None:
             return raffles
@@ -359,10 +359,6 @@ class AOTW(frame.Frame, Meta):
             await self.pick_raffle(category)
             await asyncio.sleep(60)
 
-    async def pick(self, ctx):
-        category = frame.Category(ctx.channel.category)
-        await self.pick_raffle(category)
-
     async def set_schedule(self, ctx, *args):
         category = frame.Category(ctx.channel.category).uri
         self.schedule = [category, args[0]]
@@ -370,6 +366,10 @@ class AOTW(frame.Frame, Meta):
             self.schedule = [category, args[1]]
         await ctx.send('Schedule set for ' + self.schedule[category][0] + ' at ' +
                        self.schedule[category][1] + ':' + self.schedule[category][2])
+
+    async def pick(self, ctx):
+        category = frame.Category(ctx.channel.category)
+        await self.pick_raffle(category)
 
     async def pick_raffle(self, category: str or frame.Category) -> None:
         if isinstance(category, frame.Category):
@@ -405,6 +405,58 @@ class AOTW(frame.Frame, Meta):
         else:
             await channel.send('No Raffles set for this category. There will be no Album for this week.')
 
+    async def review(self, ctx, album: frame.Album):
+        form = forms.Form(ctx, album.name, cleanup=True)
+        form.add_question('Musical Ability\n' +
+                          'On a scale from 1-10 how would you rate the Musical Ability displayed in this album?',
+                          'musical_ability',
+                          [self.review_validator])
+        form.add_question('Musical Creativity\n' +
+                          'On a scale from 1-10 how would you rate the Musical Creativity displayed in this album?',
+                          'musical_creativity',
+                          [self.review_validator])
+        form.add_question('Vocal Ability\n' +
+                          'On a scale from 1-10 how would you rate the Vocal Ability displayed in this album?',
+                          'vocal_ability',
+                          [self.review_validator])
+        form.add_question('Lyrical Creativity\n' +
+                          'On a scale from 1-10 how would you rate the Lyrical Creativity displayed in this album?',
+                          'lyrical_creativity',
+                          [self.review_validator])
+        form.add_question('Album Interconnectivity\n' +
+                          'On a scale from 1-10 how well connected were each song to the album as a whole?',
+                          'album_interconnectivity',
+                          [self.review_validator])
+        form.add_question('Mix and Master\n' +
+                          'On a scale from 1-10 how would you rate the Mix and Master of this album?',
+                          'mix_master',
+                          [self.review_validator])
+        form.add_question('Overall Impression\n' +
+                          'On a scale from 1-10 how much did you like this album?',
+                          'impression',
+                          [self.review_validator])
+        form.edit_and_delete(True)
+        form.set_timeout(120)
+        result = await form.start()
+        embed = discord.Embed(title=f"@{ctx.author.name}'s Review of {album.name}",
+                              description=f'Musical Ability: {result.musical_ability}\n' +
+                                          f'Musical Creativity: {result.musical_creativity}\n' +
+                                          f'Vocal Ability: {result.vocal_ability}\n' +
+                                          f'Lyrical Creativity: {result.lyrical_creativity}\n' +
+                                          f'Album Interconnectivity: {result.album_interconnectivity}\n' +
+                                          f'Mix and Master: {result.mix_master}\n' +
+                                          f'Overall Impression: {result.impression}\n')
+        await ctx.send(embed=embed)
+
+    async def review_validator(self, ctx, message):
+        try:
+            number = float(message.content)
+            if 1 <= number <= 10:
+                return number
+            return False
+        except:
+            return False
+
 
 class AOTWCog(commands.Cog):
     def __init__(self, bot: AOTW) -> None:
@@ -421,6 +473,31 @@ class AOTWCog(commands.Cog):
             await self.bot.get_raffle(ctx)
         else:
             await self.bot.raffle(ctx, args[0])
+
+    @commands.command(
+        help='Review an album. Send "!review" with no parameters to review the current album of the week, or add a ' +
+             'spotify album link to review that album. Just follow the prompts to set your rating.',
+        brief='Reviews an album'
+    )
+    async def review(self, ctx, *args):
+        if args:
+            if self.bot.is_album_url(args[0]) or self.bot.is_album_uri(args[0]):
+                album = Album(args[0])
+                await self.bot.review(ctx, album)
+                # ToDo create this method
+            else:
+                await ctx.send('Invalid Album link')
+        else:
+            category = frame.Category(ctx.channel.category).uri
+            album = None
+            if category in self.bot.aotw and self.bot.aotw[category] is not None:
+                album = Album(self.bot.aotw[category])
+            if album is None:
+                await ctx.send('There is no album of the week right now to review. If you would like to review a different ' +
+                         'album please add a link to the album on spotify after "!review"')
+            else:
+                await self.bot.review(ctx, album)
+
 
     @commands.command(
         help='From a list of every raffle set by the Members of this channel, pick an album at random to be the ' +
@@ -458,6 +535,3 @@ class AOTWCog(commands.Cog):
     async def before_picker(self):
         print('pickers waiting for bot to initialize')
         await self.bot.bot.wait_until_ready()
-
-async def is_true(ctx, message):
-    return True
