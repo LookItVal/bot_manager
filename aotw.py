@@ -308,7 +308,7 @@ class Raffle(frame.Data):
             raise TypeError('User must be string uri, frame.User, or its subclasses.')
 
 
-class Review(frame.Data):  # ToDo
+class Review(frame.Data):
     def __init__(self, uri: str = None, data: dict = None) -> None:
         if uri:
             super().__init__(uri)
