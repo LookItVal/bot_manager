@@ -4,7 +4,6 @@ import os
 import random
 import asyncio
 from datetime import datetime
-from uuid import uuid4
 
 import discord
 from discord.ext import tasks, commands, forms
@@ -25,6 +24,10 @@ class Album(frame.Album):
                 self.raffles[key] = AlbumDict(value)
         else:
             self.raffles = {}
+        if 'reviews' in self.data:
+            self.reviews = self.data.pop('reviews')
+        else:
+            self.reviews = {}
 
 
 # Discord
@@ -40,6 +43,10 @@ class User(frame.User):
             self._raffle = self.data.pop('raffle')
         else:
             self._raffle = None
+        if 'reviews' in self.data:
+            self.reviews = self.data.pop('reviews')
+        else:
+            self.reviews = {}
 
     @property
     def raffle(self):  # ToDo cant add type hints here
@@ -76,6 +83,27 @@ class User(frame.User):
     def raffles(self, album: dict) -> None:
         raise KeyError('If you want this to work you gotta build it yourself.')
 
+    def review(self, album, category, set: dict = None):
+        if isinstance(album, frame.Album):
+            album = album.uri
+        if isinstance(category, frame.Category):
+            category = category.uri
+        if set:
+            data = set
+            if album in self.reviews:
+                Review(self.reviews[album]).update(category, data)
+            else:
+                data['category'] = [category]
+                data['user'] = self.uri
+                data['album'] = album
+                self.reviews[album] = Review(data=data).uri
+                self.save()
+        else:
+            if album in self.reviews:
+                return Review(self.reviews[album])
+            else:
+                return None
+
     def is_winner(self, category: str or frame.Category):
         if isinstance(category, frame.Category):
             category = category.uri
@@ -103,6 +131,8 @@ class Meta(frame.Meta):
             self._aotw: dict = self.data.pop('aotw')
         else:
             self._aotw: dict = {}
+        if 'channel_key' in self.data:
+            self.channel_key: str = self.data.pop('channel_key')
         if not hasattr(self, 'channel_key'):
             self.channel_key = 'album-of-the-week'
 
@@ -277,24 +307,58 @@ class Raffle(frame.Data):
         else:
             raise TypeError('User must be string uri, frame.User, or its subclasses.')
 
-    def gen_id(self) -> str:
-        metadata = Meta()
-        return self.gen_id_rec(metadata)
 
-    def gen_id_rec(self, metadata: frame.Meta) -> str:
-        uuid = uuid4().hex
-        if uuid in metadata.id_list:
-            print('MOTHER FUCKER WE GOT A DUPLICATE ON UUID4')
-            print('GENERATING NEW ID')
-            metadata.uuid4_duplicate = True
-            uuid = self.gen_id_rec(metadata)
-        metadata.append_id(uuid)
-        return uuid
+class Review(frame.Data):  # ToDo
+    def __init__(self, uri: str = None, data: dict = None) -> None:
+        if uri:
+            super().__init__(uri)
+            self.user:                 str = self.data.pop('user')
+            self._album:               str = self.data.pop('album')
+            self.category:            list = self.data.pop('category')
+            self.id:                   str = self.data.pop('id')
+            self.musical_ability:    float = self.data.pop('musical_ability')
+            self.musical_creativity: float = self.data.pop('musical_creativity')
+            self.vocal_ability:      float = self.data.pop('vocal_ability')
+            self.lyrical_creativity: float = self.data.pop('lyrical_creativity')
+            self.interconnectivity:  float = self.data.pop('interconnectivity')
+            self.mix_master:         float = self.data.pop('mix_master')
+            self.impression:         float = self.data.pop('impression')
+            self.notes:                str = self.data.pop('notes')
+        if data:
+            self.id:                   str = self.gen_id()
+            self.uri:                  str = 'aotw:review:' + self.id
+            super().__init__(self.uri)
+            self.user:                 str = data.pop('user')
+            self._album:               str = data.pop('album')
+            self.category:            list = data.pop('category')
+            self.musical_ability:    float = data.pop('musical_ability')
+            self.musical_creativity: float = data.pop('musical_creativity')
+            self.vocal_ability:      float = data.pop('vocal_ability')
+            self.lyrical_creativity: float = data.pop('lyrical_creativity')
+            self.interconnectivity:  float = data.pop('interconnectivity')
+            self.mix_master:         float = data.pop('mix_master')
+            self.impression:         float = data.pop('impression')
+            self.notes:        None or str = None
+            self.data: dict = data
+            album = self.album
+            album.reviews[self.user] = self.uri
+            album.save()
+            self.save()
 
+    @property
+    def album(self):
+        return Album(self._album)
 
-class Review:  # ToDo
-    def __init__(self, uri):
-        pass
+    def update(self, category, data):
+        if isinstance(category, frame.Category):
+            category = category.uri
+        if category not in self.category:
+            self.category.append(category)
+        for key, value in data.items():
+            if key not in self.__dict__:
+                raise KeyError('Update data must be already valued in Review class')
+            self.__dict__[key] = value
+        self.save()
 
 
 class AOTW(frame.Frame, Meta):
@@ -307,11 +371,12 @@ class AOTW(frame.Frame, Meta):
     async def uuid4_collision(self, ctx) -> None:
         await ctx.send('@everyone THE IMPOSSIBLE HAS HAPPENED!\n' +
                        '<@!' + str(ctx.author.id) + '> Generated a DUPLICATE ID based on pythons UUID4!\n' +
-                       'The number of random version-4 UUIDs which need to be generated in order to have a 50%' +
-                       ' probability of at least one collision is 2.71 QUINTILLION.\n' +
+                       'The number of random version-4 UUIDs which need to be generated in order to have a 50% ' +
+                       'probability of at least one collision is 2.71 QUINTILLION.\n' +
                        'This number is equivalent to generating 1 billion UUIDs per second for about 85 years.\n' +
                        'The probability to find a duplicate within 103 trillion version-4 UUIDs is one in a ' +
-                       'billion.\n')
+                       'billion.\n' +
+                       f'In this app we have {len(self.id_list)}.')
         embed = discord.Embed(description='[Universally Unique Identifier](https://en.wikipedia.org/wiki/Universally' +
                                           '_unique_identifier#:~:text=This%20number%20is%20equivalent%20to,would%20be' +
                                           '%20about%2045%20exabytes.&text=Thus%2C%20the%20probability%20to%20find,is%' +
@@ -348,16 +413,9 @@ class AOTW(frame.Frame, Meta):
             return
         user.raffle = {category.uri: album}
         await ctx.send('Raffle Set.')
-        metadata = Meta()
+        metadata = frame.Meta()
         if metadata.uuid4_duplicate:
             await self.uuid4_collision(ctx)
-
-    async def picker(self, category):
-        while True:
-            while not self.is_date(category):
-                await asyncio.sleep(30)
-            await self.pick_raffle(category)
-            await asyncio.sleep(60)
 
     async def set_schedule(self, ctx, *args):
         category = frame.Category(ctx.channel.category).uri
@@ -366,6 +424,13 @@ class AOTW(frame.Frame, Meta):
             self.schedule = [category, args[1]]
         await ctx.send('Schedule set for ' + self.schedule[category][0] + ' at ' +
                        self.schedule[category][1] + ':' + self.schedule[category][2])
+
+    async def picker(self, category):
+        while True:
+            while not self.is_date(category):
+                await asyncio.sleep(30)
+            await self.pick_raffle(category)
+            await asyncio.sleep(60)
 
     async def pick(self, ctx):
         category = frame.Category(ctx.channel.category)
@@ -425,7 +490,7 @@ class AOTW(frame.Frame, Meta):
                           [self.review_validator])
         form.add_question('Album Interconnectivity\n' +
                           'On a scale from 1-10 how well connected were each song to the album as a whole?',
-                          'album_interconnectivity',
+                          'interconnectivity',
                           [self.review_validator])
         form.add_question('Mix and Master\n' +
                           'On a scale from 1-10 how would you rate the Mix and Master of this album?',
@@ -436,17 +501,11 @@ class AOTW(frame.Frame, Meta):
                           'impression',
                           [self.review_validator])
         form.edit_and_delete(True)
-        form.set_timeout(120)
+        form.set_timeout(60)
         result = await form.start()
-        embed = discord.Embed(title=f"@{ctx.author.name}'s Review of {album.name}",
-                              description=f'Musical Ability: {result.musical_ability}\n' +
-                                          f'Musical Creativity: {result.musical_creativity}\n' +
-                                          f'Vocal Ability: {result.vocal_ability}\n' +
-                                          f'Lyrical Creativity: {result.lyrical_creativity}\n' +
-                                          f'Album Interconnectivity: {result.album_interconnectivity}\n' +
-                                          f'Mix and Master: {result.mix_master}\n' +
-                                          f'Overall Impression: {result.impression}\n')
-        await ctx.send(embed=embed)
+        user = User(ctx.author.id)
+        user.review(album.uri, ctx.channel.category.id, set=result.__dict__)
+        await self.notify_review(ctx, album)
 
     async def review_validator(self, ctx, message):
         try:
@@ -456,6 +515,22 @@ class AOTW(frame.Frame, Meta):
             return False
         except:
             return False
+
+    async def notify_review(self, ctx, album):
+        user = User(ctx.author.id)
+        category = frame.Category(ctx.channel.category.id)
+        review = user.review(album.uri, category)
+        description = (f'Musical Ability: {review.musical_ability}\n' +
+                       f'Musical Creativity: {review.musical_creativity}\n' +
+                       f'Vocal Ability: {review.vocal_ability}\n' +
+                       f'Lyrical Creativity: {review.lyrical_creativity}\n' +
+                       f'Album Interconnectivity: {review.interconnectivity}\n' +
+                       f'Mix and Master: {review.mix_master}\n' +
+                       f'Overall Impression: {review.impression}\n')
+        if review.notes is not None:
+            description = description + f'Notes:: {review.notes}\n'
+        embed = discord.Embed(title=f"@{ctx.author.name}'s Review of {album.name}", description=description)
+        await ctx.send(embed=embed)
 
 
 class AOTWCog(commands.Cog):
@@ -484,7 +559,6 @@ class AOTWCog(commands.Cog):
             if self.bot.is_album_url(args[0]) or self.bot.is_album_uri(args[0]):
                 album = Album(args[0])
                 await self.bot.review(ctx, album)
-                # ToDo create this method
             else:
                 await ctx.send('Invalid Album link')
         else:
@@ -493,11 +567,11 @@ class AOTWCog(commands.Cog):
             if category in self.bot.aotw and self.bot.aotw[category] is not None:
                 album = Album(self.bot.aotw[category])
             if album is None:
-                await ctx.send('There is no album of the week right now to review. If you would like to review a different ' +
-                         'album please add a link to the album on spotify after "!review"')
+                await ctx.send('There is no album of the week right now to review. If you would like to review a ' +
+                               'different album please add a link to the album on spotify after "!review"')
             else:
                 await self.bot.review(ctx, album)
-
+        # TODO this should eventually have the ability to do "!review note {add notes here}" or something similar
 
     @commands.command(
         help='From a list of every raffle set by the Members of this channel, pick an album at random to be the ' +

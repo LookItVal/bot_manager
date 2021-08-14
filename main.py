@@ -1,9 +1,15 @@
 import aotw
 import frame
 
-VERSION = '1.0.2'
+VERSION = '1.1.0'
 
-bot = aotw.AOTW()
-bot.run()
-# coda = aotw.Meta()
-# print(coda.raffle_list)
+
+def main():
+    bot = aotw.AOTW()
+    bot.run()
+    # coda = aotw.Meta()
+    # print(coda.raffle_list)
+
+
+if __name__ == '__main__':
+    main()

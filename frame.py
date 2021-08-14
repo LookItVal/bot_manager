@@ -3,6 +3,7 @@ import json
 import inspect
 from types import FunctionType, CoroutineType
 from functools import wraps
+from uuid import uuid4
 from math import e
 from decimal import *
 
@@ -78,6 +79,20 @@ class Data:
             else:
                 final[key] = data[key]
         return final
+
+    def gen_id(self) -> str:
+        metadata = Meta()
+        return self.gen_id_rec(metadata)
+
+    def gen_id_rec(self, metadata) -> str:
+        uuid = uuid4().hex
+        if uuid in metadata.id_list:
+            print('MOTHER FUCKER WE GOT A DUPLICATE ON UUID4')
+            print('GENERATING NEW ID')
+            metadata.uuid4_duplicate = True
+            uuid = self.gen_id_rec(metadata)
+        metadata.append_id(uuid)
+        return uuid
 
     def save(self) -> None:
         if not os.path.isdir(self.directory):
@@ -230,12 +245,13 @@ class Category(Data):
 
 # Coda
 class Meta(Data):
-    def __init__(self, uri: str) -> None:
+    def __init__(self, uri: None or str = None) -> None:
+        if uri is None:
+            uri = 'coda:metadata'
         super().__init__(uri)
         if self.data:
             self.id_list:         list = self.data.pop('id_list')
             self.uuid4_duplicate: bool = self.data.pop('uuid4_duplicate')
-            self.channel_key:      str = self.data.pop('channel_key')
         else:
             self.id_list:         list = []
             self.uuid4_duplicate: bool = False
