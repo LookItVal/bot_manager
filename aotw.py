@@ -528,7 +528,7 @@ class AOTW(frame.Frame, Meta):
                        f'Mix and Master: {review.mix_master}\n' +
                        f'Overall Impression: {review.impression}\n')
         if review.notes is not None:
-            description = description + f'Notes:: {review.notes}\n'
+            description = description + f'Notes: {review.notes}\n'
         embed = discord.Embed(title=f"@{ctx.author.name}'s Review of {album.name}", description=description)
         await ctx.send(embed=embed)
 
