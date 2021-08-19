@@ -556,11 +556,15 @@ class AOTWCog(commands.Cog):
     )
     async def review(self, ctx, *args):
         if args:
-            if self.bot.is_album_url(args[0]) or self.bot.is_album_uri(args[0]):
-                album = Album(args[0])
-                await self.bot.review(ctx, album)
-            else:
-                await ctx.send('Invalid Album link')
+            await ctx.send('Sorry! This command has been shut off due to known bugs.\n' +
+                           'You can still review the album of the week, just not specific albums.\n' +
+                           'To review the album of the week, simply send "!review" with no parameter and follow the ' +
+                           'prompts.')
+            # if self.bot.is_album_url(args[0]) or self.bot.is_album_uri(args[0]):
+            #     album = Album(args[0])
+            #     await self.bot.review(ctx, album)
+            # else:
+            #     await ctx.send('Invalid Album link')
         else:
             category = frame.Category(ctx.channel.category).uri
             album = None
