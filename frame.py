@@ -69,7 +69,7 @@ class Data:
             self.uri:       str = self.data.pop('uri')  # feels redundant but is needed to remove the uri from self.data
 
     def __call__(self) -> dict:
-        data = self.__dict__ | self.data  # cause you can just do this ig
+        data = {**self.__dict__, **self.data}  # cause you can just do this ig
         del data['data']
         del data['directory']
         final = {}
