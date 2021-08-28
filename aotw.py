@@ -284,7 +284,7 @@ class Raffle(frame.Data):
             self.save()
             return
         album = self[key]
-        if not hasattr(album.raffles, key):
+        if key not in album.raffles:
             album.raffles[key] = {}
         album.raffles[key][self.uri] = self._user
         album.save()

@@ -4,8 +4,8 @@ import inspect
 from types import FunctionType, CoroutineType
 from functools import wraps
 from uuid import uuid4
-from math import e
-from decimal import *
+# from math import e
+# from decimal import *
 
 import discord
 import spotipy
