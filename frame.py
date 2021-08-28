@@ -335,6 +335,7 @@ class Frame(Meta):
         return data
 
     def on_ready(self):
+        print()
         print(f'Running Manager V{main.VERSION}')
         print('Discord Bot Ready')
 
