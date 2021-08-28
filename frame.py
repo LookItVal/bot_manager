@@ -1,3 +1,5 @@
+import main
+
 import os
 import json
 import inspect
@@ -333,6 +335,7 @@ class Frame(Meta):
         return data
 
     def on_ready(self):
+        print(f'Running Manager V{main.VERSION}')
         print('Discord Bot Ready')
 
     async def ping(self, ctx):
