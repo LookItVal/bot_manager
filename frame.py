@@ -386,6 +386,7 @@ class MainCog(commands.Cog):
         help="Gives the console log",
         brief="Gives the console log"
     )
+    @commands.has_any_role('Moderator', 'Administrator')
     async def log(self, ctx):
         await ctx.send(file=discord.File(os.path.join(os.getcwd(), f'{self.bot.logger.name}.log')))
 
