@@ -3,6 +3,7 @@ import main
 import os
 import json
 import inspect
+import logging
 from types import FunctionType, CoroutineType
 from functools import wraps
 from uuid import uuid4
@@ -32,32 +33,23 @@ if os.name == 'nt':
     slash = '\\'
 
 
-def log(method: FunctionType or CoroutineType) -> FunctionType or CoroutineType:
-    if inspect.iscoroutinefunction(method):
-        print('logging coroutine method: ' + method.__name__)
+def generate_logger(name) -> logging.Logger:
+    logging.basicConfig(filemode='w+')
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(levelname)s:%(name)s:%(asctime)s:%(message)s')
+    # file_handler = logging.StreamHandler()
+    file_handler = logging.FileHandler(name + '.log')
+    # file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)
+    # stream_handler = logging.StreamHandler()
+    # stream_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    # logger.addHandler(stream_handler)
+    return logger
 
-        @wraps(method)
-        async def logged(*args, **kwargs):
-            if method.__name__ == 'on_ready':
-                return await method(*args, **kwargs)
-            if isinstance(args[1], discord.ext.commands.context.Context):
-                ctx = args[1]
-                print()
-                print(ctx.author.name + '#' + ctx.author.discriminator + ' invoked the following command:')
-                print(ctx.message.content)
-            print('Triggering Coroutine Method: ' + method.__name__)
-            if isinstance(args[1], Category):
-                print('    In Category: ' + args[1].name)
-            return await method(*args, **kwargs)
-    else:
-        logged = method
-#        print('logging method: ' + method.__name__)
-#
-#        @wraps(method)
-#        def logged(*args, **kwargs):
-#            print('Triggering Method: ' + method.__name__)
-#            return method(*args, **kwargs)
-    return logged
+
+logger = generate_logger('FRAME')
 
 
 class Data:
@@ -313,6 +305,35 @@ class Meta(Data):
 
 class Frame(Meta):
     TOKEN = os.getenv('DISCORD_TOKEN')
+    logger = logger
+
+    @classmethod
+    def log(cls, method: FunctionType or CoroutineType) -> FunctionType or CoroutineType:
+        if inspect.iscoroutinefunction(method):
+            cls.logger.info('logging coroutine method: ' + method.__name__)
+
+            @wraps(method)
+            async def logged(*args, **kwargs):
+                if method.__name__ == 'on_ready':
+                    return await method(*args, **kwargs)
+                if isinstance(args[1], discord.ext.commands.context.Context):
+                    ctx = args[1]
+                    cls.logger.info('')
+                    cls.logger.info(ctx.author.name + '#' + ctx.author.discriminator + ' invoked the following command:')
+                    cls.logger.info(ctx.message.content)
+                cls.logger.info('Triggering Coroutine Method: ' + method.__name__)
+                if isinstance(args[1], Category):
+                    cls.logger.info('    In Category: ' + args[1].name)
+                return await method(*args, **kwargs)
+        else:
+            logged = method
+        #        print('logging method: ' + method.__name__)
+        #
+        #        @wraps(method)
+        #        def logged(*args, **kwargs):
+        #            print('Triggering Method: ' + method.__name__)
+        #            return method(*args, **kwargs)
+        return logged
 
     def __new__(cls, *args, **kwargs) -> object:  # i have no idea if this is the correct type but pycharm doesnt care
         for name, method in inspect.getmembers(cls, inspect.isfunction):
@@ -320,7 +341,7 @@ class Frame(Meta):
                 continue
             if name[:1] == '_':
                 continue
-            setattr(cls, name, log(method))
+            setattr(cls, name, cls.log(method))
         return super(Frame, cls).__new__(cls, *args, **kwargs)
 
     def __init__(self, uri: str = None) -> None:
@@ -335,9 +356,9 @@ class Frame(Meta):
         return data
 
     def on_ready(self):
-        print()
-        print(f'Running Manager V{main.VERSION}')
-        print('Discord Bot Ready')
+        self.logger.info('')
+        self.logger.info(f'Running Manager V{main.VERSION}')
+        self.logger.info('Discord Bot Ready')
 
     async def ping(self, ctx):
         await ctx.send('pong')
@@ -360,6 +381,13 @@ class MainCog(commands.Cog):
     )
     async def ping(self, ctx):
         await self.bot.ping(ctx)
+
+    @commands.command(
+        help="Gives the console log",
+        brief="Gives the console log"
+    )
+    async def log(self, ctx):
+        await ctx.send(file=discord.File(os.path.join(os.getcwd(), f'{self.bot.logger.name}.log')))
 
 # ToDo Unsure as to why this doesnt work.
 #    @commands.Cog.listener()

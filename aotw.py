@@ -7,6 +7,9 @@ from datetime import datetime
 
 import discord
 from discord.ext import tasks, commands, forms
+from spotipy.exceptions import SpotifyException
+
+logger = frame.generate_logger('AOTW')
 
 
 # Spotify
@@ -363,6 +366,7 @@ class Review(frame.Data):
 
 class AOTW(frame.Frame, Meta):
     TOKEN = os.getenv('DISCORD_TOKEN')
+    logger = logger
 
     def __init__(self) -> None:
         super().__init__('aotw:metadata')
@@ -408,9 +412,19 @@ class AOTW(frame.Frame, Meta):
             return
         try:
             album = Album(arg)
-        except:
+        except SpotifyException as error:
+            self.logger.info('')
+            self.logger.exception('The following error was encountered')
+            self.logger.info(error)
             await ctx.send('Invalid Album Link')
             return
+        except Exception as error:
+            self.logger.info('')
+            self.logger.exception('The following unexpected error was encountered')
+            self.logger.info(type(error))
+            self.logger.info(error)
+            await ctx.send('An unknown error occurred')
+        # change try except to only catch specific errors
         user.raffle = {category.uri: album}
         await ctx.send('Raffle Set.')
         metadata = frame.Meta()
@@ -611,5 +625,5 @@ class AOTWCog(commands.Cog):
 
     @picker.before_loop
     async def before_picker(self):
-        print('pickers waiting for bot to initialize')
+        self.bot.logger.info('pickers waiting for bot to initialize')
         await self.bot.bot.wait_until_ready()
