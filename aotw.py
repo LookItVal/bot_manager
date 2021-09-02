@@ -461,6 +461,8 @@ class AOTW(frame.Frame, Meta):
         else:
             self[category] = None
         await self.notify_raffle(category)
+        channel = self.channel(category)
+        await channel.send('A new album has been chosen for the week:')
         # Notify Raffle Change in async method here
 
     def clear_aotw(self, category: str) -> None:
@@ -474,8 +476,7 @@ class AOTW(frame.Frame, Meta):
     async def notify_raffle(self, category: str) -> None:
         channel = self.channel(category)
         if self[category]:
-            await channel.send('A new album has been chosen for the week:\n' +
-                               'The Album for this week is: ' + self[category].name + ', which was chosen by:')
+            await channel.send('The Album for this week is: ' + self[category].name + ', which was chosen by:')
             for user in self[category].raffles[category].values():
                 await channel.send('<@!' + str(User(user).id) + '>')
             embed = discord.Embed(
@@ -609,6 +610,16 @@ class AOTWCog(commands.Cog):
     @commands.has_any_role('Moderator', 'Administrator')
     async def schedule(self, ctx, *args):
         await self.bot.set_schedule(ctx, *args)
+
+    @commands.command(
+        help='Sets the schedule for when the Album of the Week is picked each week. Argument 1 must be the ' +
+             'Day of the week, and argument 2 must be the Time of day in the form of a 24 hour clock.\n' +
+             'example: "!schedule Monday 17:00" would set the Album of the Week to set every Monday at 5pm',
+        brief='Chooses when to set the Album of the Week'
+    )
+    @commands.has_any_role('Moderator', 'Administrator')
+    async def aotw(self, ctx):
+        await self.bot.notify_raffle(frame.Category(ctx.channel.category).uri)
 
     @tasks.loop(count=1)
     async def picker(self):

@@ -1,7 +1,7 @@
 import aotw
 import frame
 
-VERSION = '1.1.3'
+VERSION = '1.1.4'
 
 
 def main():
